@@ -30,7 +30,7 @@ logging out does not heal anything. it pauses your character in place. (if logge
 - pool: 100, fixed
 - `/down` costs 2 stamina
 - `/up` costs 4 stamina
-- `/rest` recovers 1 stamina per 4s while resting
+- `/rest` recovers 1 stamina per 2s while resting
 - input locked during a climb or descent
 
 asymmetric cost is the central economic constraint. descending is cheap; ascending is real work. running out of stamina deep means you are stuck.
