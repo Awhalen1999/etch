@@ -31,7 +31,6 @@ logging out does not heal anything. it pauses your character in place. (if logge
 - `/down` costs 2 stamina
 - `/up` costs 4 stamina
 - `/rest` recovers 1 stamina per 2s while resting
-- input locked during a climb or descent
 
 asymmetric cost is the central economic constraint. descending is cheap; ascending is real work. running out of stamina deep means you are stuck.
 
@@ -58,7 +57,7 @@ when an encounter starts:
 if the player's stamina is too low to escape: they die.
 
 on death:
-- player respawns at the rim with full stamina
+- player respawns at the surface with full stamina
 - a permanent inscription appears at the depth of death, marking that someone died there
 - deepest depth reached is preserved
 - nothing else carries forward from this character's run
