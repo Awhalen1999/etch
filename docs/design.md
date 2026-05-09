@@ -28,8 +28,8 @@ logging out does not heal anything. it pauses your character in place. (if logge
 ## stamina
 
 - pool: 100, fixed
-- `/down` costs 2 stamina, takes 3–8s wallclock (scales with depth)
-- `/up` costs 4 stamina, takes 5–12s wallclock
+- `/down` costs 2 stamina
+- `/up` costs 4 stamina
 - `/rest` recovers 1 stamina per 4s while resting
 - input locked during a climb or descent
 
