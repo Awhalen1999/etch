@@ -18,6 +18,7 @@ use tokio::{
 use tracing::{error, info};
 
 mod commands;
+mod render;
 mod session;
 
 use session::Sessions;

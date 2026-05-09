@@ -4,9 +4,10 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tracing::debug;
 
+use crate::render::{render_for, Message};
+
 pub type SessionId = u64;
 
-/// Handle to a connected player, transport-agnostic.
 #[derive(Clone)]
 pub struct Session {
     pub id: SessionId,
@@ -14,13 +15,19 @@ pub struct Session {
 }
 
 impl Session {
-    /// Send a message to this player. Silently drops if disconnected.
+    /// Send raw text. Bypasses the render pipeline.
+    /// Most game code should use `send_message` instead.
     pub async fn send(&self, msg: impl Into<String>) {
         let _ = self.outgoing.send(msg.into()).await;
     }
+
+    /// Send a typed message through the render pipeline.
+    pub async fn send_message(&self, msg: &Message) {
+        let bytes = render_for(self, msg);
+        let _ = self.outgoing.send(bytes).await;
+    }
 }
 
-/// Registry of all connected players.
 #[derive(Default)]
 pub struct Sessions {
     inner: RwLock<HashMap<SessionId, Session>>,
@@ -32,7 +39,6 @@ impl Sessions {
         Arc::new(Self::default())
     }
 
-    /// Create and register a new session. Returns the session and its message receiver.
     pub async fn register(&self) -> (Session, mpsc::Receiver<String>) {
         let mut next = self.next_id.write().await;
         *next += 1;
@@ -48,22 +54,21 @@ impl Sessions {
         (session, rx)
     }
 
-    /// Remove a session when its connection closes.
     pub async fn unregister(&self, id: SessionId) {
         self.inner.write().await.remove(&id);
         debug!(session_id = id, "session unregistered");
     }
 
-    /// Send a message to every connected session.
-    pub async fn broadcast(&self, msg: &str) {
+    /// Broadcast a typed message to every connected session, rendered
+    /// per-recipient through the pipeline.
+    pub async fn broadcast(&self, msg: &Message) {
         let sessions: Vec<Session> =
             self.inner.read().await.values().cloned().collect();
         for s in sessions {
-            s.send(msg.to_string()).await;
+            s.send_message(msg).await;
         }
     }
 
-    /// Number of active sessions.
     pub async fn count(&self) -> usize {
         self.inner.read().await.len()
     }

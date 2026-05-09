@@ -1,6 +1,6 @@
+use crate::render::Message;
 use crate::session::{Session, Sessions};
 
-/// Process a line of player input. Both transports call into this.
 pub async fn handle_input(sessions: &Sessions, session: &Session, line: &str) {
     let line = line.trim();
 
@@ -10,9 +10,14 @@ pub async fn handle_input(sessions: &Sessions, session: &Session, line: &str) {
 
     if line == "/who" {
         let n = sessions.count().await;
-        session.send(format!("{n} connected.\r\n")).await;
+        session
+            .send_message(&Message::Private(format!("{n} connected.")))
+            .await;
     } else {
-        let msg = format!("[{}]: {}\r\n", session.id, line);
+        let msg = Message::Said {
+            from_id: session.id,
+            text: line.to_string(),
+        };
         sessions.broadcast(&msg).await;
     }
 }
