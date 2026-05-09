@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+futures-util = "0.3"
+
 # Async runtime — the foundation everything else sits on
 tokio = { version = "1", features = ["full"] }
 
