@@ -1,12 +1,16 @@
-//! Command parsing and dispatch. The single entry point is `handle_input`,
-//! which both transports call into. Unauthenticated players can only log
-//! in or get help; everything else is gated behind a successful login.
+//! Command parsing and dispatch.
 
 use sqlx::SqlitePool;
 
 use crate::auth::{self, LoginOutcome};
 use crate::render::Message;
 use crate::session::{Session, Sessions};
+
+/// Speech bubble: plain text reaches climbers within ±N depths.
+const SPEECH_RANGE: u32 = 5;
+
+const COST_DOWN: u32 = 2;
+const COST_UP: u32 = 4;
 
 /// Process one line of input from a player.
 pub async fn handle_input(
@@ -25,45 +29,192 @@ pub async fn handle_input(
         return;
     }
 
-    handle_auth(sessions, session, line).await;
+    handle_auth(sessions, db, session, line).await;
 }
 
 // ---- AUTHENTICATED ----
 
 /// Dispatch input from a logged-in player.
-async fn handle_auth(sessions: &Sessions, session: &Session, line: &str) {
-    if line == "/who" {
-        let n = sessions.count().await;
-        session
-            .send_message(&Message::Private(format!("{n} connected.")))
-            .await;
+async fn handle_auth(sessions: &Sessions, db: &SqlitePool, session: &Session, line: &str) {
+    match line {
+        "/who" => cmd_who(sessions, session).await,
+        "/down" => cmd_down(session).await,
+        "/up" => cmd_up(session).await,
+        "/rest" => cmd_rest(session).await,
+        "/quit" => cmd_quit(db, session).await,
+        l if l.starts_with('/') => {
+            session
+                .send_message(&Message::Private(format!("unknown command: {l}")))
+                .await;
+        }
+        _ => cmd_speak(sessions, session, line).await,
+    }
+}
+
+/// Show the count of currently connected players.
+async fn cmd_who(sessions: &Sessions, session: &Session) {
+    let n = sessions.count().await;
+    session
+        .send_message(&Message::Private(format!("{n} connected.")))
+        .await;
+}
+
+/// Descend one level. Costs stamina, respects cooldown.
+async fn cmd_down(session: &Session) {
+    if !precheck_movement(session).await {
         return;
     }
 
-    if line.starts_with('/') {
-        session
-            .send_message(&Message::Private(format!("unknown command: {line}")))
-            .await;
+    let Some(state) = session.player().await else {
         return;
-    }
-
-    let from_name = session.name().await.unwrap_or_else(|| "?".into());
-    let msg = Message::Said {
-        from_name,
-        text: line.to_string(),
     };
-    sessions.broadcast(&msg).await;
+
+    if state.stamina < COST_DOWN {
+        session
+            .send_message(&Message::Private("you don't have the strength.".into()))
+            .await;
+        return;
+    }
+
+    let new = session
+        .update_player(|s| {
+            s.stamina -= COST_DOWN;
+            s.depth += 1;
+            if s.depth > s.deepest_depth {
+                s.deepest_depth = s.depth;
+            }
+        })
+        .await;
+
+    if let Some(s) = new {
+        session
+            .send_message(&Message::System(format!(
+                "you descend to depth {}.",
+                s.depth
+            )))
+            .await;
+        session.mark_moved().await;
+    }
+}
+
+/// Ascend one level. Costs more stamina than descending.
+async fn cmd_up(session: &Session) {
+    if !precheck_movement(session).await {
+        return;
+    }
+
+    let Some(state) = session.player().await else {
+        return;
+    };
+
+    if state.depth == 0 {
+        session
+            .send_message(&Message::Private(
+                "you are already at the surface.".into(),
+            ))
+            .await;
+        return;
+    }
+
+    if state.stamina < COST_UP {
+        session
+            .send_message(&Message::Private(
+                "you don't have the strength to climb.".into(),
+            ))
+            .await;
+        return;
+    }
+
+    let new = session
+        .update_player(|s| {
+            s.stamina -= COST_UP;
+            s.depth -= 1;
+        })
+        .await;
+
+    if let Some(s) = new {
+        let msg = if s.depth == 0 {
+            "you reach the surface.".to_string()
+        } else {
+            format!("you climb to depth {}.", s.depth)
+        };
+        session.send_message(&Message::System(msg)).await;
+        session.mark_moved().await;
+    }
+}
+
+/// Toggle resting. While resting, the tick loop grants +1 stamina periodically.
+async fn cmd_rest(session: &Session) {
+    let new = session
+        .update_player(|s| {
+            s.resting = !s.resting;
+        })
+        .await;
+
+    if let Some(s) = new {
+        let msg = if s.resting {
+            "you sit. your back finds the wall."
+        } else {
+            "you stand."
+        };
+        session.send_message(&Message::System(msg.into())).await;
+    }
+}
+
+/// Save state and disconnect.
+async fn cmd_quit(db: &SqlitePool, session: &Session) {
+    let Some(name) = session.name().await else {
+        return;
+    };
+    if let Some(state) = session.player().await {
+        let _ = auth::save_state(db, &name, &state).await;
+    }
+    session.send("goodbye.\r\n").await;
+}
+
+/// Broadcast plain text to climbers within SPEECH_RANGE.
+async fn cmd_speak(sessions: &Sessions, session: &Session, text: &str) {
+    let Some(state) = session.player().await else {
+        return;
+    };
+    let Some(name) = session.name().await else {
+        return;
+    };
+    let msg = Message::Said {
+        from_name: name,
+        text: text.to_string(),
+    };
+    sessions.broadcast_at(state.depth, SPEECH_RANGE, &msg).await;
+}
+
+/// Shared movement gate. Returns true if the player may move now.
+async fn precheck_movement(session: &Session) -> bool {
+    if session.movement_on_cooldown().await {
+        session
+            .send_message(&Message::Private("you need to catch your breath.".into()))
+            .await;
+        return false;
+    }
+
+    if let Some(state) = session.player().await {
+        if state.resting {
+            session
+                .send_message(&Message::Private("you are resting. /rest to stand.".into()))
+                .await;
+            return false;
+        }
+    }
+
+    true
 }
 
 // ---- UNAUTHENTICATED ----
 
-/// Dispatch input from a player who hasn't logged in yet.
 async fn handle_unauth(db: &SqlitePool, session: &Session, line: &str) {
     if line == "/help" {
         nudge(session).await;
         return;
     }
-
     if line == "/quit" {
         session.send("goodbye.\r\n").await;
         return;
@@ -78,24 +229,26 @@ async fn handle_unauth(db: &SqlitePool, session: &Session, line: &str) {
     nudge(session).await;
 }
 
-/// Try to log in. Sets the session name on success.
 async fn attempt_login(db: &SqlitePool, session: &Session, name: &str, password: &str) {
     match auth::login_or_register(db, name, password).await {
-        Ok(LoginOutcome::NewAccount) => {
+        Ok(LoginOutcome::NewAccount(state)) => {
             session.set_name(name.to_lowercase()).await;
+            session.set_player(state).await;
             session
                 .send_message(&Message::System(format!(
-                    "welcome, {}.",
+                    "welcome, {}. you are at the surface.",
                     name.to_lowercase()
                 )))
                 .await;
         }
-        Ok(LoginOutcome::Returning) => {
+        Ok(LoginOutcome::Returning(state)) => {
             session.set_name(name.to_lowercase()).await;
+            session.set_player(state.clone()).await;
             session
                 .send_message(&Message::System(format!(
-                    "welcome back, {}.",
-                    name.to_lowercase()
+                    "welcome back, {}. you are at depth {}.",
+                    name.to_lowercase(),
+                    state.depth
                 )))
                 .await;
         }
@@ -112,7 +265,6 @@ async fn attempt_login(db: &SqlitePool, session: &Session, name: &str, password:
     }
 }
 
-/// Hint at the only command that works pre-login.
 async fn nudge(session: &Session) {
     session
         .send_message(&Message::Private("type:  login <name> <password>".into()))

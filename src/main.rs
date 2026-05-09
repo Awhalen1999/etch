@@ -1,5 +1,5 @@
-//! Entry point. Initializes the database, starts both transport listeners,
-//! and waits for shutdown.
+//! Entry point. Initializes the database, starts both transport listeners
+//! and the world tick loop, waits for shutdown.
 
 use std::sync::Arc;
 
@@ -26,8 +26,10 @@ mod commands;
 mod db;
 mod render;
 mod session;
+mod world;
 
-use session::Sessions;
+use session::{Session, Sessions};
+use world::WorldState;
 
 const TCP_ADDR: &str = "0.0.0.0:4000";
 const HTTP_ADDR: &str = "0.0.0.0:8080";
@@ -38,6 +40,7 @@ const INDEX_HTML: &str = include_str!("../static/index.html");
 #[derive(Clone)]
 struct AppState {
     sessions: Arc<Sessions>,
+    world: Arc<WorldState>,
     db: SqlitePool,
 }
 
@@ -48,7 +51,11 @@ async fn main() -> Result<()> {
 
     let db = db::init(DB_PATH).await?;
     let sessions = Sessions::new();
-    let state = AppState { sessions, db };
+    let world = WorldState::new();
+
+    world::spawn_tick(sessions.clone(), world.clone());
+
+    let state = AppState { sessions, world, db };
 
     spawn_tcp(state.clone());
     spawn_http(state.clone());
@@ -68,9 +75,21 @@ fn init_tracing() {
     tracing_subscriber::fmt().with_env_filter(filter).init();
 }
 
+/// Save the player's state on disconnect, if logged in.
+async fn save_on_disconnect(db: &SqlitePool, session: &Session) {
+    let Some(name) = session.name().await else {
+        return;
+    };
+    let Some(state) = session.player().await else {
+        return;
+    };
+    if let Err(e) = auth::save_state(db, &name, &state).await {
+        error!("failed to save state for {name}: {e}");
+    }
+}
+
 // ---- TCP ----
 
-/// Spawn the TCP listener as a background task.
 fn spawn_tcp(state: AppState) {
     tokio::spawn(async move {
         if let Err(e) = run_tcp(state).await {
@@ -79,7 +98,6 @@ fn spawn_tcp(state: AppState) {
     });
 }
 
-/// Accept TCP connections, spawn a task per client.
 async fn run_tcp(state: AppState) -> Result<()> {
     let listener = TcpListener::bind(TCP_ADDR).await?;
     loop {
@@ -95,7 +113,6 @@ async fn run_tcp(state: AppState) -> Result<()> {
     }
 }
 
-/// Handle a single TCP client: read lines, route through commands.
 async fn handle_tcp(stream: TcpStream, state: AppState) -> Result<()> {
     let (read_half, mut write_half) = stream.into_split();
 
@@ -119,6 +136,7 @@ async fn handle_tcp(stream: TcpStream, state: AppState) -> Result<()> {
         commands::handle_input(&state.sessions, &state.db, &session, &line).await;
     }
 
+    save_on_disconnect(&state.db, &session).await;
     state.sessions.unregister(session_id).await;
     writer.abort();
     Ok(())
@@ -126,7 +144,6 @@ async fn handle_tcp(stream: TcpStream, state: AppState) -> Result<()> {
 
 // ---- HTTP + WebSocket ----
 
-/// Spawn the HTTP/WebSocket server as a background task.
 fn spawn_http(state: AppState) {
     tokio::spawn(async move {
         if let Err(e) = run_http(state).await {
@@ -135,7 +152,6 @@ fn spawn_http(state: AppState) {
     });
 }
 
-/// Build routes and start axum server.
 async fn run_http(state: AppState) -> Result<()> {
     let app = Router::new()
         .route("/", get(serve_index))
@@ -158,7 +174,6 @@ async fn ws_handler(
     ws.on_upgrade(move |socket| handle_ws(socket, state))
 }
 
-/// Handle a single WebSocket client: read messages, route through commands.
 async fn handle_ws(socket: WebSocket, state: AppState) {
     info!("ws connection opened");
 
@@ -185,6 +200,7 @@ async fn handle_ws(socket: WebSocket, state: AppState) {
         }
     }
 
+    save_on_disconnect(&state.db, &session).await;
     state.sessions.unregister(session_id).await;
     writer.abort();
     info!("ws connection closed");
