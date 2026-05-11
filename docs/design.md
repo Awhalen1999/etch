@@ -2,194 +2,247 @@
 
 ## what it is
 
-a multiplayer text horror mud. players climb up and down a single vertical shaft. dual transport: telnet (tcp:4000) and browser (http:8080, xterm.js over websocket). same world, identical experience, single rust server.
+a multiplayer text horror mud. the surface is dead from heat. you fell into a mineshaft and can't climb out. the only way is down. ants live below. the queen waits at depth 200.
 
-## world model
+dual transport: telnet (tcp:4000) and browser (http:8080, xterm.js over websocket). same world, identical experience, single rust server.
 
-the shaft is one dimension: depth, an integer ≥ 0.
-- depth 0 = surface (spawn)
-- depth 1000 = the bottom (authored ending)
-- depths beyond 1000 do not exist
+## architecture
 
-players exist at exactly one integer depth at a time. multiple players can share a depth.
+etch is a single-player adventure with two shared layers:
 
-the shaft is divided into bands. bands are zones with shared atmosphere and per-depth flavor.
+| layer | shared? |
+|---|---|
+| chat (plain text, shouts, whispers) | yes |
+| inscriptions on walls | yes |
+| death-marker inscriptions | yes |
+| encounters (ants, queen) | no — per-player |
+| items (spawns, inventory) | no — per-player |
+| queen state | no — resets every encounter, per-player |
+
+chat and inscriptions are the only multiplayer surfaces. everything else is your own private world.
+
+## world
+
+the shaft is one dimension: depth, an integer 1 to 200.
+- depth 0: the surface (conceptual only — unreachable, you fell from here)
+- depth 1: where you wake. the NPC is here. the overhang above blocks the way up.
+- depth 200: the queen.
+
+players exist at one integer depth. multiple players can share a depth.
+
+| band | depths |
+|---|---|
+| the dust | 1-30 (npc, where you wake) |
+| the stone | 31-80 |
+| the writing | 81-120 |
+| the damp | 121-160 |
+| the quiet | 161-199 |
+| the queen | 200 |
+
+first-visit messages fire the first time a player crosses into a new band — derived from deepest_depth (no separate flag needed). the dust has no first-visit message; the opening cutscene serves that purpose. see STORY.md for all band prose.
+
+## opening
+
+new accounts get an authored cutscene on first login. plays once.
+
+contents (see STORY.md for full text):
+- the heat killed your camp
+- you fell into a shaft
+- you wake at depth 1
+- the NPC explains there's no way up — the lip overhangs
+- the NPC gives you a headlamp
+- you commit internally: "i am not dying here"
+- gameplay begins at depth 1
+
+returning players skip the intro. they resume wherever they last logged out.
+
+the NPC is permanent at depth 1. doesn't move. is not lookable via `/look` — `/look` is for other players only. the NPC speaks on certain triggers: re-entering depth 1 after going deeper, respawning after death, etc. see STORY.md for trigger pool.
 
 ## core loop
 
-1. player connects → logs in → resumes wherever they last logged out
-2. player descends, paying stamina
-3. player rests, reads inscriptions, talks, marks walls - knowing rest at depth is risky
-4. player ascends back up, paying more stamina, with multiple rest stops
-5. player disconnects → state persists exactly: same depth, same stamina, same psychosis
-
-logging out does not heal anything. it pauses your character in place. (if logged out during death scene or chase just death anyways)
+1. connect → log in → resume position (or new-account intro)
+2. descend, paying stamina
+3. rest, read inscriptions, talk, carve — rest attracts ants below depth 40
+4. ascend, paying more stamina, with rest stops
+5. disconnect → state persists: depth, stamina, items, deepest
 
 ## stamina
 
-- pool: 100, fixed
-- `/down` costs 2 stamina
-- `/up` costs 4 stamina
-- `/rest` recovers 1 stamina per 2s while resting
+- base pool: 100
+- `/down` costs 4 stamina
+- `/up` costs 8 stamina
+- `/rest` recovers 2 stamina per second while resting
+- stamina items in inventory passively raise your max
+- 2-second cooldown between successful moves
 
-asymmetric cost is the central economic constraint. descending is cheap; ascending is real work. running out of stamina deep means you are stuck.
-
-## enemies and death
-
-below depth 100, something can find you while you rest. spawn rate increases with depth:
-
-| depth | encounter chance per rest |
-|---|---|
-| 0–100 | never |
-| 100–300 | very rare |
-| 300–500 | rare |
-| 500–700 | uncommon |
-| 700+ | more but still uncommon |
-
-frequency does not climb fast. what climbs is the *consequence* — at deep depths you may not have the stamina to escape.
-
-when an encounter starts:
-- normal `/up` and `/down` are disabled
-- `/escape up` costs 20 stamina, takes you up one level fast
-- `/escape down` costs 10 stamina, takes you down one level fast
-- the player has ~10–15 seconds to act
-
-if the player's stamina is too low to escape: they die.
-
-on death:
-- player respawns at the surface with full stamina
-- a permanent inscription appears at the depth of death, marking that someone died there
-- deepest depth reached is preserved
-- nothing else carries forward from this character's run
-
-the helpless feeling — knowing you're too broke to flee — is the horror. preserve stamina or perish.
+descending is cheap, ascending is real work. running out of stamina deep means you cannot leave.
 
 ## communication
 
-- plain text (no slash) → broadcast to all players at same depth (± 5), clean
-- `/shout <text>` → reaches players within ±150 depths, corrupted by absolute depth distance from listener
-- `/whisper <name> <text>` → directed message, non distance-corrupted
-- `/mark <text>` → carve persistent inscription at current depth, never corrupted
-- `/read` → list all inscriptions at current depth (author + timestamp)
+- plain text → broadcast to all players at the same depth only. no range.
+- `/shout <text>` → reaches players within ±20 depths. corrupted by distance.
+- `/whisper <name> <text>` → directed, uncorrupted.
+- `/mark <text>` → carve persistent inscription at current depth. never corrupted.
+- `/read` → list every inscription at current depth.
 
-distance corruption applies to spoken/shouted messages only. wall inscriptions are always clean.
+corruption only applies to speech and shouts. inscriptions are forever and always clean.
 
 ## commands
 
 | command | does |
 |---|---|
-| (plain text) | speak to current depth |
+| (plain text) | speak to current depth only |
 | `/down` | descend one level |
 | `/up` | ascend one level |
-| `/rest` | sit and recover stamina (risky below 100) |
-| `/escape up` | flee an encounter, 20 stamina |
-| `/escape down` | flee an encounter, 10 stamina, deeper |
-| `/shout <text>` | broadcast across depth range |
+| `/rest` | sit and recover stamina |
+| `/fight` | attack a present ant or the queen |
+| `/escape` | flee an encounter (moves you up ~10% of current depth) |
+| `/shout <text>` | broadcast within ±20 depths |
 | `/whisper <name> <text>` | directed cross-depth message |
-| `/mark <text>` | inscribe wall at current depth |
-| `/read` | read inscriptions here |
-| `/me` | full-screen character sheet |
-| `/look <name>` | view another player's character |
+| `/mark <text>` | carve inscription at current depth |
+| `/read` | read inscriptions at current depth |
+| `/me` | character sheet |
+| `/look <name>` | view another player and their inventory |
 | `/who` | list online players + depths |
 | `/depths` | leaderboards (surface only) |
 | `/take <item>` | pick up loot at current depth |
-| `/drop <item>` | leave item here |
+| `/drop <item>` | leave item (removed from inventory, no one else sees it) |
 | `/help` | command reference |
-| `/quit` | disconnect (saves your exact state) |
+| `/quit` | disconnect (saves state) |
 
-## hud
+## encounters
 
-persistent status line at top of screen, always visible. no toggle.
+below depth 40, ants can find you while resting. encounter rolls happen every 5 seconds while resting:
 
-`name · depth N · stamina ████░░ X/100 · deepest N · N below`
+| depth | chance per roll |
+|---|---|
+| 1-40 | 0% (never) |
+| 41-80 | 5% |
+| 81-120 | 10% |
+| 121-160 | 15% |
+| 161-199 | 20% |
 
-at high psychosis levels, the hud itself begins to misbehave:
-- depth number occasionally flickers to a wrong value
-- stamina bar may briefly show 100 when it isn't
-- player name may briefly read as someone else's
-- hud may show climbers `below` who aren't actually online
+when an ant arrives:
+- normal `/up` and `/down` are disabled
+- you can `/fight` or `/escape`
+- if you do nothing for ~15 seconds, the ant takes you. you die.
 
-these effects only appear in moderate-to-severe psychosis states. clear at the rim.
+### /fight (vs an ant)
 
-updates live on state change.
+- costs 30 stamina (one-shot resolution)
+- you swing. dice roll modified by combat items.
+- success → the ant is dead. its skull lies at your feet. `/take skull` to keep it.
+- failure → the ant takes you. you die.
 
-## persistence
+base success rate: 70%. combat items raise it further.
 
-what survives between sessions:
-- account (name, password hash)
-- current depth — your exact location
-- current stamina — what you had on quit
-- inscriptions written
-- items collected
-- deepest depth reached
-- psychosis state
-- bottom-reached flag and altered name diacritic
+### /escape
 
-what does NOT survive:
-- chat history
+- costs 30 stamina
+- moves you up by 10% of your current depth, rounded up
+- 90% base success rate. escape items raise it further.
+- failure → the ant catches you. you die.
 
-logging out parks you. the world doesn't move while you're gone. you start again exactly where you stopped.
+example: encounter at depth 150 → /escape costs 30 stamina and moves you to depth 135. you lose 15 levels and a chunk of stamina, but you live.
 
-## loot
+escape is the safer choice (higher base success, depth-loss cost). fight is the gamble that lets you keep your ground.
 
-items spawn at depths when a player enters that level, weighted by depth — rare and weirder loot appears deeper.
+## the queen (depth 200)
+
+a per-player boss encounter. fully client-side state.
+
+- the queen spawns at full HP every time you enter depth 200
+- entering depth 200 triggers a cutscene (see STORY.md)
+- incoming chat is muted during the queen encounter
+- the encounter is turn-based: each `/fight` is one round
+- `/fight` against the queen does NOT cost stamina per round
+- each round: you attack (damage modified by combat items), then the queen attacks back
+- the queen's attack has a 30% base hit rate; escape items reduce this
+- when the queen hits you, she drains 10 stamina (toxin attack)
+- if your stamina hits 0 mid-fight, you die
+- `/escape` follows the standard escape rules: 30 stamina, 90% base success, moves you up 10% of current depth (so from 200 → 180). escaping resets the queen's HP.
+- if you log out during the queen fight, your character dies (anti-cheese)
+- if you kill the queen, your name gains a permanent diacritic mark visible everywhere
+
+## items
+
+three categories:
+
+**escape items** — gritty survival gear. boost escape rolls. reduce queen's hit rate during boss fight.
+examples: frayed rope, miner's boots, leather harness, climbing chalk, torn gloves.
+
+**combat items** — scavenged tools. boost fight rolls (vs ants) and damage per round (vs queen).
+examples: broken pickaxe, rusted saw, ball-peen hammer, bent crowbar, jagged shard.
+
+**stamina items** — passive max-stamina buffs. as long as the item is in your inventory, your max stamina is raised.
+examples: mystery bottle (+10), mutant frog (+20), MRE kit (+15), pouch of pills (+10), strip of dried meat (+5).
 
 constraints:
-- player inventory is small (5 slots). cannot hoard.
-- loot has no mechanical effect. it is purely flex / decoration / `/me` glyphs.
-- carrying rare loot up from the deep is a real achievement because of the climb cost.
-- on death, all carried loot is lost. it does not drop at the death site (the inscription marks the death; the items are simply gone).
+- inventory size: 5 slots
+- combat and escape items modify rolls passively while held
+- stamina items boost max passively while held
+- on death, all carried items are lost
+- items show their stats in `/me` and `/look`
 
-players see a brief notice when entering a depth that has loot waiting. they can choose to `/take` or pass.
+## item spawning
+
+items spawn for you when you first enter a depth. each player rolls independently. the spawn pool is weighted by depth:
+
+| depth | item pool |
+|---|---|
+| 1-40 | common only |
+| 41-120 | common + uncommon |
+| 121-160 | common + uncommon + rare |
+| 161-199 | uncommon + rare + very rare |
+
+deeper depths give better loot but cost more to reach.
+
+## death
+
+on death:
+- a permanent inscription appears at the depth where you died ("X fell here, MM-DD")
+- you respawn at depth 1 with full stamina
+- deepest depth reached is preserved
+- all carried items are lost
 
 ## the depths (leaderboards)
 
-surface-only command: `/depths`. four leaderboards in a single full-screen view:
+surface-only command: `/depths`. shows:
+- currently connected players and their depths
+- top 5 deepest reaches all-time
+- optional param: `/depths queens` lists every player who has killed the queen
 
-this is simply a current list of all the players depths (current and all time perhaps depths takes a param? )
+## hud
 
-## psychosis
+persistent status line at top of screen, always visible.
 
-triggered by cumulative session time spent below depth thresholds:
-- 30+ min below 300: light text flicker on read messages
-- 20+ min below 500: false ambient lines, slightly-wrong substitutions
-- 15+ min below 700: phantom names in /who, false attributed shouts, hud begins to glitch
-- sustained below 800: severe — phantom presences, hud lies, the world misbehaves
+`name · depth N · stamina ████░░ X/MAX · deepest N · N below`
 
-ambient effects include whispers from fake players, ticks and clicks (the same sounds an approaching enemy makes — players cannot tell which is which).
+bottom status bar shows current band and a single ambient detail about the current depth.
 
-resting partially mitigates accumulation. only ascending clears it meaningfully. psychosis state persists across sessions if you log out deep.
+## persistence
 
-no ui for psychosis state — players experience it.
+per-player state in db:
+- account (name, password hash)
+- current depth, current stamina
+- inventory contents
+- deepest depth reached
+- queen-killed flag and diacritic
 
-## the bottom
+(first-visit band tracking is derived from deepest_depth, not stored separately.)
 
-triggered the first time a player's depth reaches 1000.
+server-wide state in db:
+- all inscriptions (including death markers)
 
-- input locks
-- hud vanishes for the duration
-- screen displays the wall of those who came before — every player who has reached the bottom, with the inscription each one chose to leave
-- the player is given a single inscription to add to the wall, permanent
-- the player's name gains a diacritic mark visible in /who, /me, /depths, all future inscriptions
-- player can `/up` afterward to begin the climb back
-
-reaching the bottom is permanent and rare. the diacritic on the name is the visible permanent marker.
+does not survive:
+- chat history
+- in-progress queen encounter (logout = death)
+- in-progress ant encounter (logout = death)
 
 ## rendering
 
-every outgoing message goes through a single render function: `render_for(session, message) -> bytes`.
-- input: typed `Message` enum + recipient `Session`
-- output: rendered bytes (ansi-formatted text)
-- per-recipient effects (corruption by distance, color, hud, psychosis effects, hud glitches) all live here
-
-game logic constructs typed messages, never raw strings.
+every outgoing message goes through `render_for(session, message) -> bytes`. per-recipient effects (corruption, color, hud, chat-muted during encounters) all live here.
 
 ## tech
 
-- rust 2021, tokio async runtime
-- axum for http + websocket
-- sqlx + sqlite for persistence (single file)
-- argon2 for password hashing
-- xterm.js as the browser client (~50 lines of html/js)
-- single binary, two ports
-- deploy: fly.io (yyz region), persistent volume for sqlite
+rust 2021. tokio. axum. sqlx + sqlite. argon2. xterm.js. single binary, two ports. deploy: fly.io (yyz), persistent volume.
