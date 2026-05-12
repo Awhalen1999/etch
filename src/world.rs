@@ -18,7 +18,7 @@ use crate::session::Sessions;
 /// Stamina recovery: 1 point every N ticks while resting.
 /// At 1 tick/sec, this gives the GAME.md rate of 1-per-2-seconds.
 const REST_RECOVERY_TICKS: u32 = 2;
-const STAMINA_MAX: u32 = 100;
+pub const STAMINA_MAX: u32 = 100;
 
 /// Shared, mutable world state. Empty for now.
 #[derive(Default)]

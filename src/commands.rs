@@ -5,6 +5,7 @@ use sqlx::SqlitePool;
 use crate::auth::{self, LoginOutcome};
 use crate::render::Message;
 use crate::session::{Session, Sessions};
+use crate::world::STAMINA_MAX;
 
 /// Plain text reaches only players at the same depth.
 const SPEECH_RANGE: u32 = 0;
@@ -43,6 +44,7 @@ async fn handle_auth(sessions: &Sessions, db: &SqlitePool, session: &Session, li
         "/down" => cmd_down(session).await,
         "/up" => cmd_up(session).await,
         "/rest" => cmd_rest(session).await,
+        "/me" => cmd_me(session).await,
         "/read" => cmd_read(db, session).await,
         l if l.starts_with("/mark ") => cmd_mark(db, session, &l[6..]).await,
         "/mark" => {
@@ -169,6 +171,39 @@ async fn cmd_rest(session: &Session) {
             "you stand."
         };
         session.send_message(&Message::System(msg.into())).await;
+    }
+}
+
+/// Display character sheet.
+async fn cmd_me(session: &Session) {
+    let Some(state) = session.player().await else {
+        return;
+    };
+    let Some(name) = session.name().await else {
+        return;
+    };
+    let band = band_name(state.depth);
+    let lines = format!(
+        "{name}\ndepth {depth} · {band}\nstamina {stam}/{max}\ndeepest {deep}",
+        depth = state.depth,
+        stam = state.stamina,
+        max = STAMINA_MAX,
+        deep = state.deepest_depth,
+    );
+    session.send_message(&Message::Private(lines)).await;
+}
+
+/// Map a depth to its band name.
+fn band_name(depth: u32) -> &'static str {
+    match depth {
+        0 => "the surface",
+        1..=30 => "the dust",
+        31..=80 => "the stone",
+        81..=120 => "the writing",
+        121..=160 => "the damp",
+        161..=199 => "the quiet",
+        200 => "the queen",
+        _ => "unknown",
     }
 }
 
