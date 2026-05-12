@@ -6,11 +6,11 @@ use crate::auth::{self, LoginOutcome};
 use crate::render::Message;
 use crate::session::{Session, Sessions};
 
-/// Speech bubble: plain text reaches climbers within ±N depths.
-const SPEECH_RANGE: u32 = 5;
+/// Plain text reaches only players at the same depth.
+const SPEECH_RANGE: u32 = 0;
 
-const COST_DOWN: u32 = 2;
-const COST_UP: u32 = 4;
+const COST_DOWN: u32 = 4;
+const COST_UP: u32 = 8;
 
 /// Process one line of input from a player.
 pub async fn handle_input(
