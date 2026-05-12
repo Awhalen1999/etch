@@ -184,7 +184,7 @@ async fn cmd_me(session: &Session) {
     };
     let band = band_name(state.depth);
     let lines = format!(
-        "{name}\ndepth {depth} · {band}\nstamina {stam}/{max}\ndeepest {deep}",
+        "{name}\r\ndepth {depth} · {band}\r\nstamina {stam}/{max}\r\ndeepest {deep}",
         depth = state.depth,
         stam = state.stamina,
         max = STAMINA_MAX,
@@ -207,7 +207,7 @@ fn band_name(depth: u32) -> &'static str {
     }
 }
 
-/// Save state and disconnect.
+/// Save state and return to the login prompt.
 async fn cmd_quit(db: &SqlitePool, session: &Session) {
     let Some(name) = session.name().await else {
         return;
@@ -215,7 +215,8 @@ async fn cmd_quit(db: &SqlitePool, session: &Session) {
     if let Some(state) = session.player().await {
         let _ = auth::save_state(db, &name, &state).await;
     }
-    session.send("goodbye.\r\n").await;
+    session.clear_auth().await;
+    session.send("goodbye.\r\ntype: login <name> <password>\r\n").await;
 }
 
 /// Carve an inscription at the player's current depth.

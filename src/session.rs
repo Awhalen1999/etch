@@ -59,6 +59,12 @@ impl Session {
         *self.name.write().await = Some(name);
     }
 
+    /// Clear auth state, returning the session to the login prompt.
+    pub async fn clear_auth(&self) {
+        *self.name.write().await = None;
+        *self.player.write().await = None;
+    }
+
     /// Set the player's loaded state on login.
     pub async fn set_player(&self, state: PlayerState) {
         *self.player.write().await = Some(state);
