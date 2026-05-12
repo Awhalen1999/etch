@@ -157,6 +157,24 @@ impl Sessions {
         }
     }
 
+    /// Send a shout to all players within range. Each recipient gets distance-based corruption.
+    pub async fn broadcast_shout(&self, from_depth: u32, range: u32, from_name: &str, text: &str) {
+        let sessions: Vec<Session> = self.inner.read().await.values().cloned().collect();
+        for s in sessions {
+            if let Some(state) = s.player().await {
+                let distance = state.depth.abs_diff(from_depth);
+                if distance <= range {
+                    let msg = Message::Shouted {
+                        from_name: from_name.to_string(),
+                        text: text.to_string(),
+                        distance,
+                    };
+                    s.send_message(&msg).await;
+                }
+            }
+        }
+    }
+
     pub async fn count(&self) -> usize {
         self.inner.read().await.len()
     }

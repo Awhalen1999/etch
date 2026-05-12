@@ -15,6 +15,13 @@ pub enum Message {
         text: String,
     },
 
+    /// A shout from another player. Corrupted by distance.
+    Shouted {
+        from_name: String,
+        text: String,
+        distance: u32,
+    },
+
     /// A private response only the recipient sees (e.g. /who output).
     Private(String),
 }

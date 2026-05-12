@@ -12,6 +12,7 @@ const SPEECH_RANGE: u32 = 0;
 const COST_DOWN: u32 = 4;
 const COST_UP: u32 = 8;
 const MAX_MARK_LEN: usize = 240;
+const SHOUT_RANGE: u32 = 20;
 
 /// Process one line of input from a player.
 pub async fn handle_input(
@@ -47,6 +48,12 @@ async fn handle_auth(sessions: &Sessions, db: &SqlitePool, session: &Session, li
         "/mark" => {
             session
                 .send_message(&Message::Private("carve what?".into()))
+                .await;
+        }
+        l if l.starts_with("/shout ") => cmd_shout(sessions, session, &l[7..]).await,
+        "/shout" => {
+            session
+                .send_message(&Message::Private("shout what?".into()))
                 .await;
         }
         "/quit" => cmd_quit(db, session).await,
@@ -258,6 +265,23 @@ async fn cmd_speak(sessions: &Sessions, session: &Session, text: &str) {
         text: text.to_string(),
     };
     sessions.broadcast_at(state.depth, SPEECH_RANGE, &msg).await;
+}
+
+/// Shout to players within ±SHOUT_RANGE depths. Corrupted by distance.
+async fn cmd_shout(sessions: &Sessions, session: &Session, text: &str) {
+    let text = text.trim();
+    if text.is_empty() {
+        return;
+    }
+    let Some(state) = session.player().await else {
+        return;
+    };
+    let Some(name) = session.name().await else {
+        return;
+    };
+    sessions
+        .broadcast_shout(state.depth, SHOUT_RANGE, &name, text)
+        .await;
 }
 
 /// Shared movement gate. Returns true if the player may move now.
