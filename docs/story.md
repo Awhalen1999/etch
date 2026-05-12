@@ -220,6 +220,52 @@ the NPC speaks one randomly-selected line when triggered. triggers below.
 
 "this isn't a bad place to wait."
 
+## first encounter cutscene
+
+plays once, the first time a player triggers an ant encounter (below depth 40). after this, encounters are purely mechanical.
+
+something moves in the dark below you.
+
+[pause]
+
+you hear it before you see it.
+legs. too many legs. clicking against stone.
+
+[pause]
+
+it pulls itself up onto the beam in front of you.
+
+[longer pause]
+
+it's the size of a man.
+
+[pause]
+
+its head is wrong. smooth and ridged like cracked bone.
+two black eyes catch your headlamp and don't reflect it back.
+they just swallow the light.
+
+[pause]
+
+its mandibles open sideways.
+they're serrated. wet. there's something dark caught between them.
+
+[pause]
+
+it smells like copper and rot.
+
+[longer pause]
+
+it doesn't charge. it just watches you.
+its antennae twitch once. twice.
+
+[pause]
+
+it knows you're here.
+
+/fight to engage.
+/escape to run.
+
 ## first-visit band messages
 
 each player sees the message the first time their depth crosses into a new band — derived from deepest_depth tracking.
@@ -256,21 +302,16 @@ this is not a place where things rest.
 
 # cut scene 2 start (mute chat)
 
-the mineshaft opens.
+the shaft opens.
 
 [pause]
 
-you stop. there is an opening below you. a room, not a tunnel. finally...
+you stop. there is an opening below you. a room, not a tunnel.
 
 [pause]
 
-a strange light pulses softly from somewhere far across.
-something glistens — water? sunlight?
-that's not possible. that can't be possible.
-
-[pause]
-
-you must be thousands of feet under the surface.
+a strange light pulses from somewhere across the chamber.
+something biological. something alive in the walls.
 
 [longer pause]
 
@@ -278,21 +319,75 @@ you take another step down.
 
 [pause]
 
+the floor is wet. it's not water.
+
+[pause]
+
+bones.
+
+[pause]
+
+scattered across the stone. picked clean. human.
+skulls. ribcages. jawbones cracked open and hollowed out.
+drag marks lead inward from every tunnel.
+
+[longer pause]
+
+this is where they bring them.
+
+[pause]
+
 [CLICK]
 
 [CLICK CLICK]
 
+[pause]
+
+mandibles. opening and closing in the dark.
+the sound of bone on bone.
+
 [longer pause]
 
-the room is full of sound.
+she's at the center of the room.
 
 [pause]
 
-something massive shifts in the dark.
+she's massive. twice your size.
+her abdomen drags behind her, swollen with eggs
+that pulse and shift beneath a membrane slick with fluid.
 
 [pause]
 
-something is waiting.
+where she moves she leaves a trail.
+dark. thick. something between blood and mucus.
+it hisses faintly where it meets the stone.
+
+[pause]
+
+her exoskeleton is black and cracked. gore clings to the ridges.
+remains. hair. things you don't want to identify.
+
+[pause]
+
+her head turns toward you.
+compound eyes. hundreds of black lenses.
+every single one finds you at once.
+
+[pause]
+
+her mandibles open. the length of your forearm.
+serrated. stained dark. they click shut. click open.
+
+[longer pause]
+
+she pulls herself toward you.
+slow. deliberate. dragging that weight behind her.
+the trail widens.
+
+[pause]
+
+she doesn't need to be fast.
+everything that comes down here ends up in front of her eventually.
 
 [pause]
 
@@ -316,8 +411,6 @@ players who pass through that depth and `/read` will see it among the inscriptio
 the queen has been slain.
 
 # cut scene 3 start (mute chat)
-
-[pause]
 
 the clicking falters. the queens body slumps.
 something deep below her shifts and goes still.
@@ -397,7 +490,7 @@ the surface.
 
 [pause]
 
-the full heat hits you and you remember why you went into this hell hole in the first place.
+the heat hits you and you remember why you went down in the first place.
 
 [pause]
 
