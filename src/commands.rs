@@ -11,6 +11,7 @@ const SPEECH_RANGE: u32 = 0;
 
 const COST_DOWN: u32 = 4;
 const COST_UP: u32 = 8;
+const MAX_MARK_LEN: usize = 240;
 
 /// Process one line of input from a player.
 pub async fn handle_input(
@@ -41,6 +42,13 @@ async fn handle_auth(sessions: &Sessions, db: &SqlitePool, session: &Session, li
         "/down" => cmd_down(session).await,
         "/up" => cmd_up(session).await,
         "/rest" => cmd_rest(session).await,
+        "/read" => cmd_read(db, session).await,
+        l if l.starts_with("/mark ") => cmd_mark(db, session, &l[6..]).await,
+        "/mark" => {
+            session
+                .send_message(&Message::Private("carve what?".into()))
+                .await;
+        }
         "/quit" => cmd_quit(db, session).await,
         l if l.starts_with('/') => {
             session
@@ -107,10 +115,10 @@ async fn cmd_up(session: &Session) {
         return;
     };
 
-    if state.depth == 0 {
+    if state.depth <= 1 {
         session
             .send_message(&Message::Private(
-                "you are already at the surface.".into(),
+                "the lip overhangs. no climbing back.".into(),
             ))
             .await;
         return;
@@ -133,11 +141,7 @@ async fn cmd_up(session: &Session) {
         .await;
 
     if let Some(s) = new {
-        let msg = if s.depth == 0 {
-            "you reach the surface.".to_string()
-        } else {
-            format!("you climb to depth {}.", s.depth)
-        };
+        let msg = format!("you climb to depth {}.", s.depth);
         session.send_message(&Message::System(msg)).await;
         session.mark_moved().await;
     }
@@ -170,6 +174,75 @@ async fn cmd_quit(db: &SqlitePool, session: &Session) {
         let _ = auth::save_state(db, &name, &state).await;
     }
     session.send("goodbye.\r\n").await;
+}
+
+/// Carve an inscription at the player's current depth.
+async fn cmd_mark(db: &SqlitePool, session: &Session, text: &str) {
+    let text = text.trim();
+    if text.is_empty() {
+        session
+            .send_message(&Message::Private("carve what?".into()))
+            .await;
+        return;
+    }
+    if text.len() > MAX_MARK_LEN {
+        session
+            .send_message(&Message::Private(
+                "too much to carve. 240 characters max.".into(),
+            ))
+            .await;
+        return;
+    }
+
+    let Some(state) = session.player().await else {
+        return;
+    };
+    let Some(name) = session.name().await else {
+        return;
+    };
+
+    let depth = state.depth as i64;
+    let _ = sqlx::query(
+        "INSERT INTO inscriptions (author_name, depth, text) VALUES (?, ?, ?)",
+    )
+    .bind(&name)
+    .bind(depth)
+    .bind(text)
+    .execute(db)
+    .await;
+
+    session
+        .send_message(&Message::System("you carve into the wall.".into()))
+        .await;
+}
+
+/// Read all inscriptions at the player's current depth.
+async fn cmd_read(db: &SqlitePool, session: &Session) {
+    let Some(state) = session.player().await else {
+        return;
+    };
+
+    let depth = state.depth as i64;
+    let rows: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT author_name, text, date(written_at) FROM inscriptions WHERE depth = ? ORDER BY written_at",
+    )
+    .bind(depth)
+    .fetch_all(db)
+    .await
+    .unwrap_or_default();
+
+    if rows.is_empty() {
+        session
+            .send_message(&Message::Private("the walls are bare.".into()))
+            .await;
+        return;
+    }
+
+    for (author, text, date) in &rows {
+        session
+            .send_message(&Message::System(format!("{author} ({date}): {text}")))
+            .await;
+    }
 }
 
 /// Broadcast plain text to climbers within SPEECH_RANGE.
