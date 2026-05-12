@@ -24,6 +24,7 @@ use tracing::{error, info};
 mod auth;
 mod commands;
 mod db;
+mod death;
 mod render;
 mod session;
 mod world;
