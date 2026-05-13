@@ -129,6 +129,7 @@ when an enemy arrives:
 - normal `/up` and `/down` are disabled
 - you can `/fight` (enter combat) or `/escape` (flee)
 - if you do nothing for ~15 seconds, the enemy takes you. you die.
+- if you close or leave also die (anti cheese).
 
 all encounters are ephemeral — no state is stored in the database. fights are per-player and independent.
 
@@ -199,7 +200,7 @@ three categories. all stack additively while held. all lost on death.
 **attack items** — scavenged tools. increase damage per successful strike. base strike damage is 50.
 - common (+10): wooden stick, bent nail, rock shard
 - uncommon (+15): rusted hammer, broken crowbar
-- rare (+20-25): pickaxe, saw blade, jagged shard
+- rare (+20-25): pickaxe, saw blade, jagged shard, mandible
 
 **defense items** — bulk/protection gear. reduce stamina damage taken on a wrong strike. base penalty is 40.
 - common (-2): hard hat, leather scraps, thick gloves
