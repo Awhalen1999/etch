@@ -48,6 +48,8 @@ pub struct Session {
     pub last_moved: Arc<RwLock<Option<Instant>>>,
     /// Active encounter state. `Some` = encounter/combat active.
     pub encounter: Arc<RwLock<Option<EncounterState>>>,
+    /// Item available to /take at current depth. Cleared on movement.
+    pub pending_item: Arc<RwLock<Option<String>>>,
 }
 
 impl Session {
@@ -211,6 +213,7 @@ impl Sessions {
             player: Arc::new(RwLock::new(None)),
             last_moved: Arc::new(RwLock::new(None)),
             encounter: Arc::new(RwLock::new(None)),
+            pending_item: Arc::new(RwLock::new(None)),
         };
 
         self.inner.write().await.insert(id, session.clone());

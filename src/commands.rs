@@ -43,7 +43,7 @@ pub async fn handle_input(
 async fn handle_auth(sessions: &Sessions, db: &SqlitePool, session: &Session, line: &str) {
     match line {
         "/who" => cmd_who(sessions, session).await,
-        "/down" => cmd_down(session).await,
+        "/down" => cmd_down(db, session).await,
         "/up" => cmd_up(session).await,
         "/rest" => cmd_rest(session).await,
         "/fight" => encounter::fight(session).await,
@@ -64,12 +64,7 @@ async fn handle_auth(sessions: &Sessions, db: &SqlitePool, session: &Session, li
                 .send_message(&Message::Private("shout what?".into()))
                 .await;
         }
-        l if l.starts_with("/take ") => cmd_take(db, session, &l[6..]).await,
-        "/take" => {
-            session
-                .send_message(&Message::Private("take what?".into()))
-                .await;
-        }
+        l if l.starts_with("/take") => cmd_take(db, session).await,
         l if l.starts_with("/drop ") => cmd_drop(db, session, &l[6..]).await,
         "/drop" => {
             session
@@ -94,8 +89,8 @@ async fn cmd_who(sessions: &Sessions, session: &Session) {
         .await;
 }
 
-/// Descend one level. Costs stamina, respects cooldown.
-async fn cmd_down(session: &Session) {
+/// Descend one level. Costs stamina, respects cooldown. Rolls for item spawn.
+async fn cmd_down(db: &SqlitePool, session: &Session) {
     if !precheck_movement(session).await {
         return;
     }
@@ -129,6 +124,8 @@ async fn cmd_down(session: &Session) {
             )))
             .await;
         session.mark_moved().await;
+        *session.pending_item.write().await = None;
+        item::try_spawn(db, session, s.depth).await;
     }
 }
 
@@ -171,6 +168,7 @@ async fn cmd_up(session: &Session) {
         let msg = format!("you climb to depth {}.", s.depth);
         session.send_message(&Message::System(msg)).await;
         session.mark_moved().await;
+        *session.pending_item.write().await = None;
     }
 }
 
@@ -330,28 +328,32 @@ async fn cmd_read(db: &SqlitePool, session: &Session) {
     }
 }
 
-/// Pick up an item by name.
-async fn cmd_take(db: &SqlitePool, session: &Session, input: &str) {
-    let input = input.trim().to_lowercase();
+/// Pick up the pending item at this depth.
+async fn cmd_take(db: &SqlitePool, session: &Session) {
     let Some(name) = session.name().await else {
         return;
     };
 
-    // Find matching item definition by name.
-    let Some(def) = item::ITEMS.iter().find(|i| i.name == input) else {
+    let pending = session.pending_item.read().await.clone();
+    let Some(item_id) = pending else {
         session
-            .send_message(&Message::Private("there is nothing like that here.".into()))
+            .send_message(&Message::Private("there is nothing here to take.".into()))
             .await;
         return;
     };
 
-    if !item::add(db, &name, def.id).await {
+    let Some(def) = item::find(&item_id) else {
+        return;
+    };
+
+    if !item::add(db, &name, &item_id).await {
         session
             .send_message(&Message::Private("your hands are full. 5 items max.".into()))
             .await;
         return;
     }
 
+    *session.pending_item.write().await = None;
     session
         .send_message(&Message::System(format!("you pick up the {}.", def.name)))
         .await;

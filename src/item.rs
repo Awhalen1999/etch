@@ -166,3 +166,56 @@ pub async fn stamina_bonus(db: &SqlitePool, player_name: &str) -> u32 {
         .map(|i| i.stat)
         .sum()
 }
+
+// ---- Spawning ----
+
+use rand::Rng;
+use crate::render::Message;
+use crate::session::Session;
+
+/// Chance an item spawns when entering a depth.
+const SPAWN_CHANCE: f32 = 0.25;
+
+/// Roll for an item spawn on entering a depth. Notifies the player if one appears.
+pub async fn try_spawn(_db: &SqlitePool, session: &Session, depth: u32) {
+    // Do all rng work before any awaits (ThreadRng is not Send).
+    let spawned = roll_spawn(depth);
+
+    let Some(item) = spawned else {
+        return;
+    };
+
+    *session.pending_item.write().await = Some(item.id.to_string());
+    session
+        .send_message(&Message::System(format!(
+            "something catches your eye. a {}.",
+            item.name
+        )))
+        .await;
+}
+
+/// Roll for a spawn. Returns the item if one spawned.
+fn roll_spawn(depth: u32) -> Option<&'static ItemDef> {
+    let mut rng = rand::thread_rng();
+    if rng.gen::<f32>() >= SPAWN_CHANCE {
+        return None;
+    }
+
+    let pool = spawn_pool(depth);
+    if pool.is_empty() {
+        return None;
+    }
+
+    Some(pool[rng.gen_range(0..pool.len())])
+}
+
+/// Get the pool of items that can spawn at a given depth.
+fn spawn_pool(depth: u32) -> Vec<&'static ItemDef> {
+    ITEMS.iter().filter(|i| match depth {
+        1..=40 => i.rarity == Rarity::Common,
+        41..=120 => i.rarity == Rarity::Common || i.rarity == Rarity::Uncommon,
+        121..=160 => true,
+        161..=199 => i.rarity == Rarity::Uncommon || i.rarity == Rarity::Rare,
+        _ => false,
+    }).collect()
+}
