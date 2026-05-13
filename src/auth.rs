@@ -22,6 +22,7 @@ const RESERVED_NAMES: &[&str] = &[
     "login", "help", "quit", "who", "me", "look",
     "down", "up", "rest", "read", "mark", "shout",
     "whisper", "take", "drop", "depths", "escape",
+    "fight", "strike", "brace",
     "system", "server", "etch", "admin", "root",
     "keeper", "null", "none", "nobody", "anonymous",
     "bot", "mod", "moderator", "owner",
