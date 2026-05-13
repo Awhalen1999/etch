@@ -3,6 +3,7 @@
 use sqlx::SqlitePool;
 
 use crate::auth::{self, LoginOutcome};
+use crate::encounter;
 use crate::render::Message;
 use crate::session::{Session, Sessions};
 use crate::world::STAMINA_MAX;
@@ -44,6 +45,10 @@ async fn handle_auth(sessions: &Sessions, db: &SqlitePool, session: &Session, li
         "/down" => cmd_down(session).await,
         "/up" => cmd_up(session).await,
         "/rest" => cmd_rest(session).await,
+        "/fight" => encounter::fight(session).await,
+        "/strike" => encounter::strike(db, session).await,
+        "/brace" => encounter::brace(db, session).await,
+        "/escape" => encounter::escape(session).await,
         "/me" => cmd_me(session).await,
         "/read" => cmd_read(db, session).await,
         l if l.starts_with("/mark ") => cmd_mark(db, session, &l[6..]).await,
@@ -322,6 +327,13 @@ async fn cmd_shout(sessions: &Sessions, session: &Session, text: &str) {
 
 /// Shared movement gate. Returns true if the player may move now.
 async fn precheck_movement(session: &Session) -> bool {
+    if session.in_encounter().await {
+        session
+            .send_message(&Message::Private("/fight or /escape.".into()))
+            .await;
+        return false;
+    }
+
     if session.movement_on_cooldown().await {
         session
             .send_message(&Message::Private("you need to catch your breath.".into()))
