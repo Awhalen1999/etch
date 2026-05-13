@@ -11,6 +11,7 @@ use rand::Rng;
 use sqlx::SqlitePool;
 
 use crate::death;
+use crate::item;
 use crate::render::Message;
 use crate::session::Session;
 
@@ -146,6 +147,9 @@ pub async fn strike(db: &SqlitePool, session: &Session) {
     let Some(state) = session.player().await else {
         return;
     };
+    let Some(name) = session.name().await else {
+        return;
+    };
 
     if state.stamina < ACTION_COST {
         session
@@ -160,8 +164,9 @@ pub async fn strike(db: &SqlitePool, session: &Session) {
     let enemy_attacks = rand::thread_rng().gen_bool(0.5);
 
     if enemy_attacks {
-        // Wrong call. Player takes damage, deals none.
-        let penalty = WRONG_STRIKE_PENALTY; // TODO: reduce by defense items
+        // Wrong call. Player takes damage, reduced by defense items.
+        let def_bonus = item::defense_bonus(db, &name).await;
+        let penalty = WRONG_STRIKE_PENALTY.saturating_sub(def_bonus);
         session
             .update_player(|s| s.stamina = s.stamina.saturating_sub(penalty))
             .await;
@@ -182,8 +187,9 @@ pub async fn strike(db: &SqlitePool, session: &Session) {
             return;
         }
     } else {
-        // Correct call. Deal damage.
-        let damage = BASE_STRIKE_DAMAGE; // TODO: add attack item bonuses
+        // Correct call. Deal damage, boosted by attack items.
+        let atk_bonus = item::attack_bonus(db, &name).await;
+        let damage = BASE_STRIKE_DAMAGE + atk_bonus;
         let remaining = session.damage_enemy(damage).await;
         session
             .send_message(&Message::System(format!(
