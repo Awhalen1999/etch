@@ -25,6 +25,7 @@ mod auth;
 mod commands;
 mod db;
 mod death;
+mod encounter;
 mod render;
 mod session;
 mod world;
@@ -54,7 +55,7 @@ async fn main() -> Result<()> {
     let sessions = Sessions::new();
     let world = WorldState::new();
 
-    world::spawn_tick(sessions.clone(), world.clone());
+    world::spawn_tick(sessions.clone(), world.clone(), db.clone());
 
     let state = AppState { sessions, world, db };
 

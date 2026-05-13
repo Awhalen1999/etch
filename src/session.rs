@@ -23,6 +23,19 @@ pub struct PlayerState {
     pub resting: bool,
 }
 
+/// Ephemeral state for an active encounter. Not persisted.
+#[derive(Clone, Debug)]
+pub struct EncounterState {
+    /// When the encounter started (for inaction timer).
+    pub started_at: Instant,
+    /// Whether the player has entered combat (/fight).
+    pub in_combat: bool,
+    /// Enemy's remaining HP. Set when /fight is issued.
+    pub enemy_hp: u32,
+    /// Enemy's max HP.
+    pub enemy_max_hp: u32,
+}
+
 /// A handle to a connected player.
 #[derive(Clone)]
 pub struct Session {
@@ -33,6 +46,8 @@ pub struct Session {
     pub player: Arc<RwLock<Option<PlayerState>>>,
     /// Timestamp of the last successful /down or /up.
     pub last_moved: Arc<RwLock<Option<Instant>>>,
+    /// Active encounter state. `Some` = encounter/combat active.
+    pub encounter: Arc<RwLock<Option<EncounterState>>>,
 }
 
 impl Session {
@@ -103,6 +118,71 @@ impl Session {
     pub async fn mark_moved(&self) {
         *self.last_moved.write().await = Some(Instant::now());
     }
+
+    /// Whether the player is currently in an encounter (pre-combat or combat).
+    pub async fn in_encounter(&self) -> bool {
+        self.encounter.read().await.is_some()
+    }
+
+    /// Whether the player is in active combat (past /fight).
+    pub async fn in_combat(&self) -> bool {
+        self.encounter.read().await.as_ref().is_some_and(|e| e.in_combat)
+    }
+
+    /// Get a copy of the encounter state.
+    pub async fn get_encounter(&self) -> Option<EncounterState> {
+        self.encounter.read().await.clone()
+    }
+
+    /// Start an encounter (pre-combat). Player must /fight or /escape.
+    pub async fn start_encounter(&self) {
+        *self.encounter.write().await = Some(EncounterState {
+            started_at: Instant::now(),
+            in_combat: false,
+            enemy_hp: 0,
+            enemy_max_hp: 0,
+        });
+    }
+
+    /// Transition to combat. Sets enemy HP.
+    pub async fn enter_combat(&self, enemy_hp: u32) {
+        let mut guard = self.encounter.write().await;
+        if let Some(enc) = guard.as_mut() {
+            enc.in_combat = true;
+            enc.enemy_hp = enemy_hp;
+            enc.enemy_max_hp = enemy_hp;
+            enc.started_at = Instant::now();
+        }
+    }
+
+    /// Apply damage to the enemy. Returns remaining HP.
+    pub async fn damage_enemy(&self, damage: u32) -> u32 {
+        let mut guard = self.encounter.write().await;
+        if let Some(enc) = guard.as_mut() {
+            enc.enemy_hp = enc.enemy_hp.saturating_sub(damage);
+            enc.enemy_hp
+        } else {
+            0
+        }
+    }
+
+    /// Reset inaction timer (called after each player action in combat).
+    pub async fn reset_encounter_timer(&self) {
+        let mut guard = self.encounter.write().await;
+        if let Some(enc) = guard.as_mut() {
+            enc.started_at = Instant::now();
+        }
+    }
+
+    /// End the current encounter.
+    pub async fn end_encounter(&self) {
+        *self.encounter.write().await = None;
+    }
+
+    /// How long since last action in the encounter.
+    pub async fn encounter_elapsed(&self) -> Option<Duration> {
+        self.encounter.read().await.as_ref().map(|e| e.started_at.elapsed())
+    }
 }
 
 /// The registry of all currently-connected players.
@@ -130,6 +210,7 @@ impl Sessions {
             name: Arc::new(RwLock::new(None)),
             player: Arc::new(RwLock::new(None)),
             last_moved: Arc::new(RwLock::new(None)),
+            encounter: Arc::new(RwLock::new(None)),
         };
 
         self.inner.write().await.insert(id, session.clone());
