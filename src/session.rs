@@ -266,6 +266,19 @@ impl Sessions {
         self.inner.read().await.len()
     }
 
+    /// Find an active session by player name, if one exists.
+    pub async fn find_by_name(&self, name: &str) -> Option<Session> {
+        let sessions = self.inner.read().await;
+        for s in sessions.values() {
+            if let Some(n) = s.name().await {
+                if n == name {
+                    return Some(s.clone());
+                }
+            }
+        }
+        None
+    }
+
     /// Get a clone of every connected session. Used by the tick loop.
     pub async fn all(&self) -> Vec<Session> {
         self.inner.read().await.values().cloned().collect()

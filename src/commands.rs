@@ -30,7 +30,7 @@ pub async fn handle_input(
     }
 
     if !session.is_authenticated().await {
-        handle_unauth(db, session, line).await;
+        handle_unauth(sessions, db, session, line).await;
         return;
     }
 
@@ -446,7 +446,7 @@ async fn precheck_movement(session: &Session) -> bool {
 
 // ---- UNAUTHENTICATED ----
 
-async fn handle_unauth(db: &SqlitePool, session: &Session, line: &str) {
+async fn handle_unauth(sessions: &Sessions, db: &SqlitePool, session: &Session, line: &str) {
     if line == "/help" {
         nudge(session).await;
         return;
@@ -458,14 +458,20 @@ async fn handle_unauth(db: &SqlitePool, session: &Session, line: &str) {
 
     let parts: Vec<&str> = line.split_whitespace().collect();
     if parts.len() == 3 && parts[0].eq_ignore_ascii_case("login") {
-        attempt_login(db, session, parts[1], parts[2]).await;
+        attempt_login(sessions, db, session, parts[1], parts[2]).await;
         return;
     }
 
     nudge(session).await;
 }
 
-async fn attempt_login(db: &SqlitePool, session: &Session, name: &str, password: &str) {
+async fn attempt_login(
+    sessions: &Sessions,
+    db: &SqlitePool,
+    session: &Session,
+    name: &str,
+    password: &str,
+) {
     match auth::login_or_register(db, name, password).await {
         Ok(LoginOutcome::NewAccount(state)) => {
             session.set_name(name.to_lowercase()).await;
@@ -478,6 +484,9 @@ async fn attempt_login(db: &SqlitePool, session: &Session, name: &str, password:
                 .await;
         }
         Ok(LoginOutcome::Returning(state)) => {
+            // Kick any existing session for this account.
+            kick_duplicate(sessions, db, &name.to_lowercase()).await;
+
             session.set_name(name.to_lowercase()).await;
             session.set_player(state.clone()).await;
             session
@@ -498,6 +507,19 @@ async fn attempt_login(db: &SqlitePool, session: &Session, name: &str, password:
                 .send_message(&Message::Private(format!("{e}")))
                 .await;
         }
+    }
+}
+
+/// If another session is logged in as this name, save its state and kick it.
+async fn kick_duplicate(sessions: &Sessions, db: &SqlitePool, name: &str) {
+    if let Some(old) = sessions.find_by_name(name).await {
+        if let Some(state) = old.player().await {
+            let _ = auth::save_state(db, name, &state).await;
+        }
+        old.send_message(&Message::System("logged in from another session.".into()))
+            .await;
+        old.clear_auth().await;
+        old.send("type: login <name> <password>\r\n").await;
     }
 }
 
