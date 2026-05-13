@@ -7,6 +7,7 @@
 use chrono::Utc;
 use sqlx::SqlitePool;
 
+use crate::item;
 use crate::render::Message;
 use crate::session::Session;
 use crate::world::STAMINA_MAX;
@@ -32,6 +33,9 @@ pub async fn die(db: &SqlitePool, session: &Session) {
     .bind(&text)
     .execute(db)
     .await;
+
+    // Clear inventory.
+    item::clear(db, &name).await;
 
     // Reset player to depth 1 with full stamina.
     session

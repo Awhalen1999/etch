@@ -4,6 +4,7 @@ use sqlx::SqlitePool;
 
 use crate::auth::{self, LoginOutcome};
 use crate::encounter;
+use crate::item;
 use crate::render::Message;
 use crate::session::{Session, Sessions};
 use crate::world::STAMINA_MAX;
@@ -49,7 +50,7 @@ async fn handle_auth(sessions: &Sessions, db: &SqlitePool, session: &Session, li
         "/strike" => encounter::strike(db, session).await,
         "/brace" => encounter::brace(db, session).await,
         "/escape" => encounter::escape(session).await,
-        "/me" => cmd_me(session).await,
+        "/me" => cmd_me(db, session).await,
         "/read" => cmd_read(db, session).await,
         l if l.starts_with("/mark ") => cmd_mark(db, session, &l[6..]).await,
         "/mark" => {
@@ -61,6 +62,18 @@ async fn handle_auth(sessions: &Sessions, db: &SqlitePool, session: &Session, li
         "/shout" => {
             session
                 .send_message(&Message::Private("shout what?".into()))
+                .await;
+        }
+        l if l.starts_with("/take ") => cmd_take(db, session, &l[6..]).await,
+        "/take" => {
+            session
+                .send_message(&Message::Private("take what?".into()))
+                .await;
+        }
+        l if l.starts_with("/drop ") => cmd_drop(db, session, &l[6..]).await,
+        "/drop" => {
+            session
+                .send_message(&Message::Private("drop what?".into()))
                 .await;
         }
         "/quit" => cmd_quit(db, session).await,
@@ -179,8 +192,8 @@ async fn cmd_rest(session: &Session) {
     }
 }
 
-/// Display character sheet.
-async fn cmd_me(session: &Session) {
+/// Display character sheet with inventory.
+async fn cmd_me(db: &SqlitePool, session: &Session) {
     let Some(state) = session.player().await else {
         return;
     };
@@ -188,13 +201,37 @@ async fn cmd_me(session: &Session) {
         return;
     };
     let band = band_name(state.depth);
-    let lines = format!(
+    let stam_bonus = item::stamina_bonus(db, &name).await;
+    let max = STAMINA_MAX + stam_bonus;
+
+    let mut lines = format!(
         "{name}\r\ndepth {depth} · {band}\r\nstamina {stam}/{max}\r\ndeepest {deep}",
         depth = state.depth,
         stam = state.stamina,
-        max = STAMINA_MAX,
         deep = state.deepest_depth,
     );
+
+    let items = item::load(db, &name).await;
+    if items.is_empty() {
+        lines.push_str("\r\ncarrying: nothing");
+    } else {
+        lines.push_str("\r\ncarrying:");
+        for item_id in &items {
+            if let Some(def) = item::find(item_id) {
+                let stat_label = match def.category {
+                    item::Category::Attack => format!("+{} attack", def.stat),
+                    item::Category::Defense => format!("-{} damage taken", def.stat),
+                    item::Category::Stamina => format!("+{} max stamina", def.stat),
+                };
+                lines.push_str(&format!("\r\n  {} ({})", def.name, stat_label));
+            }
+        }
+        let empty = item::INVENTORY_SIZE - items.len();
+        if empty > 0 {
+            lines.push_str(&format!("\r\n  {empty} empty slot{}", if empty == 1 { "" } else { "s" }));
+        }
+    }
+
     session.send_message(&Message::Private(lines)).await;
 }
 
@@ -291,6 +328,60 @@ async fn cmd_read(db: &SqlitePool, session: &Session) {
             .send_message(&Message::System(format!("{author} ({date}): {text}")))
             .await;
     }
+}
+
+/// Pick up an item by name.
+async fn cmd_take(db: &SqlitePool, session: &Session, input: &str) {
+    let input = input.trim().to_lowercase();
+    let Some(name) = session.name().await else {
+        return;
+    };
+
+    // Find matching item definition by name.
+    let Some(def) = item::ITEMS.iter().find(|i| i.name == input) else {
+        session
+            .send_message(&Message::Private("there is nothing like that here.".into()))
+            .await;
+        return;
+    };
+
+    if !item::add(db, &name, def.id).await {
+        session
+            .send_message(&Message::Private("your hands are full. 5 items max.".into()))
+            .await;
+        return;
+    }
+
+    session
+        .send_message(&Message::System(format!("you pick up the {}.", def.name)))
+        .await;
+}
+
+/// Drop an item by name.
+async fn cmd_drop(db: &SqlitePool, session: &Session, input: &str) {
+    let input = input.trim().to_lowercase();
+    let Some(name) = session.name().await else {
+        return;
+    };
+
+    // Find matching item definition by name.
+    let Some(def) = item::ITEMS.iter().find(|i| i.name == input) else {
+        session
+            .send_message(&Message::Private("you don't have that.".into()))
+            .await;
+        return;
+    };
+
+    if !item::remove(db, &name, def.id).await {
+        session
+            .send_message(&Message::Private("you don't have that.".into()))
+            .await;
+        return;
+    }
+
+    session
+        .send_message(&Message::System(format!("you drop the {}. it's gone.", def.name)))
+        .await;
 }
 
 /// Broadcast plain text to climbers within SPEECH_RANGE.

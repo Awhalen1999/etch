@@ -26,6 +26,7 @@ mod commands;
 mod db;
 mod death;
 mod encounter;
+mod item;
 mod render;
 mod session;
 mod world;
