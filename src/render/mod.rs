@@ -9,6 +9,7 @@
 //! Per-player effects (shout corruption, future color, future HUD) live here.
 
 pub mod messages;
+pub mod palette;
 
 use rand::Rng;
 use serde_json::json;

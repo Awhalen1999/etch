@@ -9,6 +9,7 @@ use axum::{
         ws::{Message as WsMessage, WebSocket, WebSocketUpgrade},
         State,
     },
+    http::header,
     response::{Html, IntoResponse},
     routing::get,
     Router,
@@ -36,7 +37,9 @@ use session::{Session, Sessions, TransportKind};
 const TCP_ADDR: &str = "0.0.0.0:4000";
 const HTTP_ADDR: &str = "0.0.0.0:8080";
 const DB_PATH: &str = "data/etch.db";
-const INDEX_HTML: &str = include_str!("../static/index.html");
+const INDEX_HTML: &str = include_str!("../web/index.html");
+const APP_CSS: &str = include_str!("../web/style.css");
+const APP_JS: &str = include_str!("../web/app.js");
 
 /// Long-lived shared state passed to both transports.
 #[derive(Clone)]
@@ -162,6 +165,8 @@ fn spawn_http(state: AppState) {
 async fn run_http(state: AppState) -> Result<()> {
     let app = Router::new()
         .route("/", get(serve_index))
+        .route("/style.css", get(serve_css))
+        .route("/app.js", get(serve_js))
         .route("/ws", get(ws_handler))
         .with_state(state);
 
@@ -172,6 +177,20 @@ async fn run_http(state: AppState) -> Result<()> {
 
 async fn serve_index() -> impl IntoResponse {
     Html(INDEX_HTML)
+}
+
+async fn serve_css() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        APP_CSS,
+    )
+}
+
+async fn serve_js() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        APP_JS,
+    )
 }
 
 async fn ws_handler(
