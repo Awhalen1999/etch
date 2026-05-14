@@ -1,8 +1,15 @@
 # etch — theme
 
-Single source of truth for the game's visual identity. The web client and the
-terminal renderer each implement these roles in their own format (CSS hex vs.
-ANSI 256). When changing a color, update this doc *and* both implementations.
+Single source of truth for the game's visual identity. Used by:
+
+- **CLI** (TypeScript + OpenTUI) — the game itself
+- **Landing page** (Astro on Cloudflare Pages) — etch.rip
+
+Each client implements the same role table in whatever format its medium
+expects. The CLI uses OpenTUI's color API (hex strings, rendered to ANSI in
+the terminal). The landing page uses CSS custom properties.
+
+When changing a color, update this doc *and* every implementation that uses it.
 
 ## palette
 
@@ -17,27 +24,28 @@ ANSI 256). When changing a color, update this doc *and* both implementations.
 | rule     | `#2a2520` | 234      | borders, separators                 |
 
 **Mapped to:**
-- `web/style.css` — `--bg`, `--fg`, `--dim`, `--accent`, `--danger`, `--chat`, `--rule`
-- `src/render/palette.rs` — `BG`, `FG`, `DIM`, `ACCENT`, `DANGER`, `CHAT`, `RULE`
+- `cli/src/ui/theme.ts` — exports the palette for OpenTUI components
+- `web/src/styles/theme.css` — defines CSS custom properties for the Astro
+  landing page
 
 ## typography
 
-- **Web:** JetBrains Mono via Google Fonts (300 for body, 400 for HUD/accent).
-  Monospace fallback if the font fails to load.
-- **Terminal:** whatever the player's terminal renders. We control nothing.
+- **CLI:** rendered in the player's terminal. font is whatever they have set.
+  we lean on contrast and color for hierarchy, not weight.
+- **Landing page:** JetBrains Mono via Google Fonts (300 for body, 400 for
+  headings). monospace fallback if the font fails to load.
 
 ## layout
 
-Both clients aim for the same three-region shape:
+All clients aim for the same three-region shape:
 
-- **Sticky top bar** — HUD (player name · depth · stamina · deepest)
-- **Scrolling middle** — story, chat, combat narration, ambient
-- **Sticky bottom bar** — current band + input prompt
+- **Top bar** — HUD (player name · depth · stamina · deepest)
+- **Middle** — story, chat, combat narration, ambient (scrolling)
+- **Bottom bar** — current band + input prompt
 
-Sizes by medium:
+Possibly a fourth region (inventory or combat overlay) added later.
 
-- **Web:** HUD/bottom ~2.5em; scroll area centered to 80ch max width
-- **Terminal:** HUD/bottom 1 row each; full width via DECSTBM scroll region
+Sizes are medium-native; concept is shared.
 
 ## mood
 

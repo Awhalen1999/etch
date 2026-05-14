@@ -4,22 +4,23 @@
 
 a multiplayer text horror mud. the surface is dead from heat. you fell into a mineshaft and can't climb out. the only way is down. enemies live below. the queen waits at depth 200.
 
-dual transport: telnet (tcp:4000) and browser (http:8080, xterm.js over websocket). same world, identical experience, single rust server.
+single-player game, runs locally. distributed as `npx @etch/cli`. a small REST API at `api.etch.rip` handles the only shared layer: inscriptions carved on walls. no real-time multiplayer.
 
 ## architecture
 
-etch is a single-player adventure with two shared layers:
+etch is single-player with one shared layer: inscriptions on walls.
 
 | layer | shared? |
 |---|---|
-| chat (plain text, shouts, whispers) | yes |
-| inscriptions on walls | yes |
-| death-marker inscriptions | yes |
-| encounters (enemies, queen) | no — per-player |
-| items (spawns, inventory) | no — per-player |
-| queen state | no — resets on death/logout, per-player |
+| inscriptions on walls (incl. death markers) | yes — via api.etch.rip |
+| encounters (enemies, queen) | no — local |
+| items (spawns, inventory) | no — local |
+| queen state | no — local |
+| stamina, depth, deepest, progress | no — local save file |
 
-chat and inscriptions are the only multiplayer surfaces. everything else is your own private world.
+inscriptions are the only multiplayer surface — an asynchronous shared world.
+the wall remembers everyone, even though you never meet them. everything else
+is your own private descent.
 
 ## world
 
@@ -80,19 +81,20 @@ descending is cheap, ascending is real work. running out of stamina deep means y
 
 ## communication
 
-- plain text → broadcast to all players at the same depth only. no range.
-- `/shout <text>` → reaches players within ±20 depths. corrupted by distance.
-- `/whisper <name> <text>` → directed, uncorrupted.
-- `/mark <text>` → carve persistent inscription at current depth. never corrupted.
-- `/read` → list every inscription at current depth.
+the only outward communication is asynchronous — carved into the walls:
 
-corruption only applies to speech and shouts. inscriptions are forever and always clean.
+- `/mark <text>` → carve a persistent inscription at the current depth. seen by every future player who passes this depth and types `/read`.
+- `/read` → list every inscription at the current depth.
+
+deaths automatically carve a death-marker (`{name} fell here. {YYYY-MM-DD}.`).
+
+there is no chat, no shouting, no whispering. you are alone in the dark. the
+only voices are the names already on the walls.
 
 ## commands
 
 | command | does |
 |---|---|
-| (plain text) | speak to current depth only |
 | `/down` | descend one level |
 | `/up` | ascend one level |
 | `/rest` | sit and recover stamina |
@@ -100,18 +102,13 @@ corruption only applies to speech and shouts. inscriptions are forever and alway
 | `/strike` | attack during combat (5 stamina) |
 | `/brace` | defend during combat (5 stamina) |
 | `/escape` | flee an encounter (30 stamina, moves you up ~10% of current depth) |
-| `/shout <text>` | broadcast within ±20 depths |
-| `/whisper <name> <text>` | directed cross-depth message |
-| `/mark <text>` | carve inscription at current depth |
-| `/read` | read inscriptions at current depth |
-| `/me` | character sheet |
-| `/look <name>` | view another player and their inventory |
-| `/who` | list online players + depths |
-| `/depths` | leaderboards (surface only) |
+| `/mark <text>` | carve inscription at current depth (synced via API) |
+| `/read` | read inscriptions at current depth (from local cache) |
 | `/take <item>` | pick up loot at current depth |
-| `/drop <item>` | leave item (removed from inventory, no one else sees it) |
+| `/drop <item>` | leave item (removed from inventory) |
+| `/me` | character sheet |
 | `/help` | command reference |
-| `/quit` | disconnect (saves state) |
+| `/quit` | save and exit |
 
 ## encounters
 
@@ -182,16 +179,15 @@ a per-player boss encounter. same combat system as regular enemies, larger scale
 
 - queen HP: 1000+
 - entering depth 200 triggers a cutscene (see STORY.md)
-- incoming chat is muted during the queen encounter
 - same turn-based combat: telegraph → `/strike` or `/brace` each round
 - queen telegraphs are unique and harder to read than regular enemies
 - wrong strike penalty is 40 stamina (same as regular enemies)
 - `/escape` available: 30 stamina, moves to depth 180. resets queen HP.
 - if your stamina hits 0 mid-fight, you die
-- if you log out during the queen fight, your character dies (anti-cheese)
-- queen HP resets on death or logout. no saving progress. all-or-nothing.
+- if you force-quit during the queen fight, your character dies (anti-cheese — game saves a death on exit-during-fight)
+- queen HP resets on death or quit. no saving progress. all-or-nothing.
 - if you kill the queen: cutscene plays, you receive the acid sac (special 6th inventory slot), `/ascent` becomes available
-- killing the queen grants a permanent diacritic mark on your name visible everywhere
+- killing the queen grants a permanent diacritic mark on your name — visible on every inscription you carve afterward
 
 ## items
 
@@ -240,45 +236,43 @@ on death:
 - deepest depth reached is preserved
 - all carried items are lost
 
-## the depths (leaderboards)
-
-surface-only command: `/depths`. shows:
-- currently connected players and their depths
-- top 5 deepest reaches all-time
-- optional param: `/depths queens` lists every player who has killed the queen
-
 ## hud
 
 persistent status line at top of screen, always visible.
 
-`name · depth N · stamina ████░░ X/MAX · deepest N · N below`
+`name · depth N · stamina ████░░ X/MAX · deepest N`
 
 bottom status bar shows current band and a single ambient detail about the current depth.
 
 ## persistence
 
-per-player state in db:
-- account (name, password hash)
-- current depth, current stamina
+**local** (`~/.etch/save.json` and `~/.etch/account.json`):
+- account name + token
+- current depth, current stamina, resting state
 - inventory contents
 - deepest depth reached
 - queen-killed flag and diacritic
+- which bands have been seen (for first-visit messages — derived from deepest_depth)
 
-(first-visit band tracking is derived from deepest_depth, not stored separately.)
-
-server-wide state in db:
+**remote** (Cloudflare D1 via api.etch.rip):
 - all inscriptions (including death markers)
+- account name registrations (name → token mapping)
 
 does not survive:
-- chat history
-- in-progress queen encounter (logout = death)
-- in-progress enemy encounter (logout = death)
+- in-progress encounter or queen fight (force-quit = death)
 - encounter combat state (HP, round number — all ephemeral)
 
 ## rendering
 
-every outgoing message goes through `render_for(session, message) -> bytes`. per-recipient effects (corruption, color, hud, chat-muted during encounters) all live here.
+the CLI renders the game with OpenTUI components. atmospheric effects (color
+roles, animations, optional CRT styling) live in the UI layer. see
+`docs/theme.md` for the palette and `docs/tech.md` for the directory layout.
 
 ## tech
 
-rust 2021. tokio. axum. sqlx + sqlite. argon2. xterm.js. single binary, two ports. deploy: fly.io (yyz), persistent volume.
+see `docs/tech.md` for the full reference.
+
+short version: TypeScript + OpenTUI for the CLI (published to npm). Cloudflare
+Workers + D1 for the inscription API. Astro on Cloudflare Pages for the
+landing site. No persistent server. No real-time multiplayer. Total cost: $0
+at expected scale.
