@@ -1,0 +1,43 @@
+/* etch — landing page theme.
+   Palette and roles authoritative in docs/theme.md. */
+
+:root {
+    --bg:     #0a0908;
+    --fg:     #b8a99c;
+    --dim:    #5a5048;
+    --accent: #c8a16f;
+    --danger: #8a2c1f;
+    --chat:   #6f8a72;
+    --rule:   #2a2520;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-weight: 300;
+    line-height: 1.6;
+}
+
+main {
+    max-width: 60ch;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+}
+
+h1 {
+    color: var(--accent);
+    font-weight: 400;
+    margin: 0 0 1rem;
+}
+
+a {
+    color: var(--accent);
+}

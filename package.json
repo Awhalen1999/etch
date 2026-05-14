@@ -1,0 +1,6 @@
+{
+  "name": "etch",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "description": "a text horror game. the only way is down."
+}

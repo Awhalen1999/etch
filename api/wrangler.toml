@@ -1,0 +1,10 @@
+name = "etch-api"
+main = "src/index.ts"
+compatibility_date = "2025-05-01"
+
+# D1 database binding. Run `pnpm db:create` first, then paste the returned
+# database_id below before `pnpm dev` or `pnpm deploy`.
+[[d1_databases]]
+binding = "DB"
+database_name = "etch"
+database_id = "TODO_RUN_db:create_AND_PASTE_HERE"

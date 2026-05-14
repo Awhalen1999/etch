@@ -1,0 +1,25 @@
+{
+  "name": "@etch/cli",
+  "version": "0.0.1",
+  "description": "etch — a text horror game in your terminal.",
+  "type": "module",
+  "bin": {
+    "etch": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --banner:js=\"#!/usr/bin/env node\" --outfile=dist/index.js"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
