@@ -7,4 +7,4 @@ compatibility_date = "2025-05-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "etch"
-database_id = "TODO_RUN_db:create_AND_PASTE_HERE"
+database_id = "7d855191-aed0-4bd3-9a49-6ccab8ad19f4"
