@@ -34,6 +34,11 @@ pub struct EncounterState {
     pub enemy_hp: u32,
     /// Enemy's max HP.
     pub enemy_max_hp: u32,
+    /// Whether the enemy will attack this round. Decided when the telegraph
+    /// is sent, consumed when the player commits /strike or /brace.
+    pub next_attacks: bool,
+    /// How many escalation lines have fired since the last action.
+    pub escalations_sent: u32,
 }
 
 /// A handle to a connected player.
@@ -143,6 +148,8 @@ impl Session {
             in_combat: false,
             enemy_hp: 0,
             enemy_max_hp: 0,
+            next_attacks: false,
+            escalations_sent: 0,
         });
     }
 
@@ -154,6 +161,23 @@ impl Session {
             enc.enemy_hp = enemy_hp;
             enc.enemy_max_hp = enemy_hp;
             enc.started_at = Instant::now();
+            enc.escalations_sent = 0;
+        }
+    }
+
+    /// Set the enemy's intent for the upcoming round.
+    pub async fn set_next_attacks(&self, attacks: bool) {
+        let mut guard = self.encounter.write().await;
+        if let Some(enc) = guard.as_mut() {
+            enc.next_attacks = attacks;
+        }
+    }
+
+    /// Mark that another escalation line has fired this round.
+    pub async fn record_escalation(&self) {
+        let mut guard = self.encounter.write().await;
+        if let Some(enc) = guard.as_mut() {
+            enc.escalations_sent += 1;
         }
     }
 
@@ -168,22 +192,18 @@ impl Session {
         }
     }
 
-    /// Reset inaction timer (called after each player action in combat).
+    /// Reset inaction timer and escalation count (called after each player action in combat).
     pub async fn reset_encounter_timer(&self) {
         let mut guard = self.encounter.write().await;
         if let Some(enc) = guard.as_mut() {
             enc.started_at = Instant::now();
+            enc.escalations_sent = 0;
         }
     }
 
     /// End the current encounter.
     pub async fn end_encounter(&self) {
         *self.encounter.write().await = None;
-    }
-
-    /// How long since last action in the encounter.
-    pub async fn encounter_elapsed(&self) -> Option<Duration> {
-        self.encounter.read().await.as_ref().map(|e| e.started_at.elapsed())
     }
 }
 

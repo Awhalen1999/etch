@@ -63,6 +63,29 @@ const TELEGRAPH_AMBIGUOUS: &[&str] = &[
     "it changes stance.",
 ];
 
+/// First escalation line, fired after a few seconds of inaction.
+const ESCALATIONS_EARLY: &[&str] = &[
+    "it's closer now.",
+    "it shifts toward you.",
+    "the air moves.",
+    "you hear its legs.",
+    "it tenses.",
+];
+
+/// Second escalation line, fired closer to the inaction death.
+const ESCALATIONS_LATE: &[&str] = &[
+    "you're running out of time.",
+    "it's almost on you.",
+    "the moment is closing.",
+    "you can feel its breath.",
+];
+
+/// Seconds of inaction before the first escalation line fires.
+const ESCALATION_EARLY_AT: u64 = 5;
+
+/// Seconds of inaction before the second escalation line fires.
+const ESCALATION_LATE_AT: u64 = 10;
+
 /// Roll for an encounter on a resting player. Called from the tick loop.
 pub async fn try_spawn(session: &Session) {
     if session.in_encounter().await {
@@ -73,7 +96,12 @@ pub async fn try_spawn(session: &Session) {
         return;
     };
 
-    if !state.resting || state.depth <= ENCOUNTER_MIN_DEPTH {
+    if !state.resting {
+        return;
+    }
+
+    // TEST: depth 5 always spawns for combat testing. Remove this block before ship.
+    if state.depth != 5 && state.depth <= ENCOUNTER_MIN_DEPTH {
         return;
     }
 
@@ -92,16 +120,59 @@ pub async fn try_spawn(session: &Session) {
         .await;
 }
 
-/// Check for inaction death. Called from the tick loop.
+/// Check inaction. Pushes escalation lines at intervals. On the hard limit:
+/// pre-combat → death; in-combat → auto-resolve the round as if no action was taken.
+/// Called from the tick loop.
 pub async fn check_inaction(db: &SqlitePool, session: &Session) {
-    if let Some(elapsed) = session.encounter_elapsed().await {
-        if elapsed >= INACTION_LIMIT {
+    let Some(enc) = session.get_encounter().await else {
+        return;
+    };
+    let elapsed = enc.started_at.elapsed();
+
+    if elapsed >= INACTION_LIMIT {
+        if enc.in_combat {
+            resolve_inaction(db, session, enc.next_attacks).await;
+        } else {
             session
                 .send_message(&Message::System("you waited too long.".into()))
                 .await;
             session.end_encounter().await;
             death::die(db, session).await;
         }
+        return;
+    }
+
+    let secs = elapsed.as_secs();
+    let expected = if secs >= ESCALATION_LATE_AT {
+        2
+    } else if secs >= ESCALATION_EARLY_AT {
+        1
+    } else {
+        0
+    };
+
+    if enc.escalations_sent < expected {
+        let late = enc.escalations_sent >= 1;
+        let line = pick_escalation(late);
+        session.send_message(&Message::System(line.into())).await;
+        session.record_escalation().await;
+    }
+}
+
+/// Resolve an in-combat round where the player didn't act. Enemy attacking = take
+/// the hit (same as wrong /strike). Enemy open = the moment passes, no damage either way.
+async fn resolve_inaction(db: &SqlitePool, session: &Session, enemy_attacks: bool) {
+    let fight_ended = if enemy_attacks {
+        take_hit(db, session, "you don't move. it does.").await
+    } else {
+        session
+            .send_message(&Message::System("the moment passes.".into()))
+            .await;
+        false
+    };
+
+    if !fight_ended {
+        advance_round(session).await;
     }
 }
 
@@ -158,57 +229,23 @@ pub async fn strike(db: &SqlitePool, session: &Session) {
         return;
     }
 
-    session.reset_encounter_timer().await;
+    let enemy_attacks = session
+        .get_encounter()
+        .await
+        .map(|e| e.next_attacks)
+        .unwrap_or(false);
+
     session.update_player(|s| s.stamina -= ACTION_COST).await;
 
-    let enemy_attacks = rand::thread_rng().gen_bool(0.5);
-
-    if enemy_attacks {
-        // Wrong call. Player takes damage, reduced by defense items.
-        let def_bonus = item::defense_bonus(db, &name).await;
-        let penalty = WRONG_STRIKE_PENALTY.saturating_sub(def_bonus);
-        session
-            .update_player(|s| s.stamina = s.stamina.saturating_sub(penalty))
-            .await;
-        session
-            .send_message(&Message::System(format!(
-                "it's faster. it hits you. stamina -{penalty}."
-            )))
-            .await;
-
-        // Check if player died from the hit.
-        let new_state = session.player().await;
-        if new_state.is_some_and(|s| s.stamina == 0) {
-            session
-                .send_message(&Message::System("you collapse.".into()))
-                .await;
-            session.end_encounter().await;
-            death::die(db, session).await;
-            return;
-        }
+    let fight_ended = if enemy_attacks {
+        take_hit(db, session, "it's faster. it hits you.").await
     } else {
-        // Correct call. Deal damage, boosted by attack items.
-        let atk_bonus = item::attack_bonus(db, &name).await;
-        let damage = BASE_STRIKE_DAMAGE + atk_bonus;
-        let remaining = session.damage_enemy(damage).await;
-        session
-            .send_message(&Message::System(format!(
-                "you connect. enemy takes {damage} damage. HP: {remaining}."
-            )))
-            .await;
+        deal_hit(db, session, &name).await
+    };
 
-        if remaining == 0 {
-            session
-                .send_message(&Message::System("you kill it. its body crumples.".into()))
-                .await;
-            session.end_encounter().await;
-            return;
-        }
+    if !fight_ended {
+        advance_round(session).await;
     }
-
-    // Next round.
-    let depth = state.depth;
-    send_telegraph(session, depth).await;
 }
 
 /// Player braces during combat.
@@ -231,26 +268,22 @@ pub async fn brace(_db: &SqlitePool, session: &Session) {
         return;
     }
 
-    session.reset_encounter_timer().await;
+    let enemy_attacks = session
+        .get_encounter()
+        .await
+        .map(|e| e.next_attacks)
+        .unwrap_or(false);
+
     session.update_player(|s| s.stamina -= ACTION_COST).await;
 
-    let enemy_attacks = rand::thread_rng().gen_bool(0.5);
-
-    if enemy_attacks {
-        // Correct call. Blocked the hit.
-        session
-            .send_message(&Message::System("you brace. it hits but you hold.".into()))
-            .await;
+    let line = if enemy_attacks {
+        "you brace. it hits but you hold."
     } else {
-        // Wrong call. Wasted a turn.
-        session
-            .send_message(&Message::System("you brace but nothing comes. wasted effort.".into()))
-            .await;
-    }
+        "you brace but nothing comes. wasted effort."
+    };
+    session.send_message(&Message::System(line.into())).await;
 
-    // Next round.
-    let depth = state.depth;
-    send_telegraph(session, depth).await;
+    advance_round(session).await;
 }
 
 /// Player escapes the encounter. Moves up 10% of current depth.
@@ -294,9 +327,67 @@ pub async fn escape(session: &Session) {
 
 // ---- Internal helpers ----
 
-/// Send a telegraph for the next round. Picks from the appropriate pool.
+/// Apply a stamina hit to the player. Narrates with `prefix` followed by the
+/// penalty. Returns true if the hit killed them and the fight ended.
+async fn take_hit(db: &SqlitePool, session: &Session, prefix: &str) -> bool {
+    let Some(name) = session.name().await else {
+        return true;
+    };
+    let def_bonus = item::defense_bonus(db, &name).await;
+    let penalty = WRONG_STRIKE_PENALTY.saturating_sub(def_bonus);
+    session
+        .update_player(|s| s.stamina = s.stamina.saturating_sub(penalty))
+        .await;
+    session
+        .send_message(&Message::System(format!("{prefix} stamina -{penalty}.")))
+        .await;
+
+    if session.player().await.is_some_and(|s| s.stamina == 0) {
+        session
+            .send_message(&Message::System("you collapse.".into()))
+            .await;
+        session.end_encounter().await;
+        death::die(db, session).await;
+        return true;
+    }
+    false
+}
+
+/// Apply a successful strike to the enemy. Returns true if the enemy died
+/// and the fight ended.
+async fn deal_hit(db: &SqlitePool, session: &Session, name: &str) -> bool {
+    let atk_bonus = item::attack_bonus(db, name).await;
+    let damage = BASE_STRIKE_DAMAGE + atk_bonus;
+    let remaining = session.damage_enemy(damage).await;
+    session
+        .send_message(&Message::System(format!(
+            "you connect. enemy takes {damage} damage. HP: {remaining}."
+        )))
+        .await;
+
+    if remaining == 0 {
+        session
+            .send_message(&Message::System("you kill it. its body crumples.".into()))
+            .await;
+        session.end_encounter().await;
+        return true;
+    }
+    false
+}
+
+/// Reset the inaction timer and send the next round's telegraph.
+async fn advance_round(session: &Session) {
+    let Some(state) = session.player().await else {
+        return;
+    };
+    session.reset_encounter_timer().await;
+    send_telegraph(session, state.depth).await;
+}
+
+/// Roll the next round's enemy intent, store it on the session, and send the matching telegraph.
 async fn send_telegraph(session: &Session, depth: u32) {
-    let telegraph = pick_telegraph(depth);
+    let (attacks, telegraph) = roll_next_round(depth);
+    session.set_next_attacks(attacks).await;
 
     if let Some(enc) = session.get_encounter().await {
         session
@@ -308,9 +399,12 @@ async fn send_telegraph(session: &Session, depth: u32) {
     }
 }
 
-/// Pick a telegraph string based on depth. Deeper = more ambiguous.
-fn pick_telegraph(depth: u32) -> &'static str {
+/// Roll enemy intent for the next round and pick a matching telegraph.
+/// At deeper depths the telegraph may be ambiguous — the underlying intent
+/// is still committed; the player just can't read it from the prose.
+fn roll_next_round(depth: u32) -> (bool, &'static str) {
     let mut rng = rand::thread_rng();
+    let attacks = rng.gen_bool(0.5);
 
     let ambiguous_chance = match depth {
         0..=80 => 0.0,
@@ -320,20 +414,28 @@ fn pick_telegraph(depth: u32) -> &'static str {
         _ => 0.0,
     };
 
-    if rng.gen::<f32>() < ambiguous_chance {
+    let telegraph = if rng.gen::<f32>() < ambiguous_chance {
         TELEGRAPH_AMBIGUOUS[rng.gen_range(0..TELEGRAPH_AMBIGUOUS.len())]
-    } else if rng.gen_bool(0.5) {
+    } else if attacks {
         TELEGRAPH_ATTACKING[rng.gen_range(0..TELEGRAPH_ATTACKING.len())]
     } else {
         TELEGRAPH_OPEN[rng.gen_range(0..TELEGRAPH_OPEN.len())]
-    }
+    };
+
+    (attacks, telegraph)
+}
+
+/// Pick a random escalation line. `late` selects the more urgent pool.
+fn pick_escalation(late: bool) -> &'static str {
+    let mut rng = rand::thread_rng();
+    let pool = if late { ESCALATIONS_LATE } else { ESCALATIONS_EARLY };
+    pool[rng.gen_range(0..pool.len())]
 }
 
 /// Enemy HP based on depth.
 fn enemy_hp(depth: u32) -> u32 {
     match depth {
-        0..=40 => 100,
-        41..=80 => 100,
+        0..=80 => 100,
         81..=120 => 175,
         121..=160 => 225,
         161..=199 => 275,
@@ -344,6 +446,10 @@ fn enemy_hp(depth: u32) -> u32 {
 
 /// Encounter chance per 5-second roll, based on depth.
 fn encounter_chance(depth: u32) -> f32 {
+    // TEST: depth 5 = 100% for combat testing. Remove before ship.
+    if depth == 5 {
+        return 1.0;
+    }
     match depth {
         0..=40 => 0.0,
         41..=80 => 0.05,
