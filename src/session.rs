@@ -247,14 +247,6 @@ impl Sessions {
         debug!(session_id = id, "session unregistered");
     }
 
-    /// Broadcast to every connected, authenticated session.
-    pub async fn broadcast(&self, msg: &Message) {
-        let sessions: Vec<Session> = self.inner.read().await.values().cloned().collect();
-        for s in sessions {
-            s.send_message(msg).await;
-        }
-    }
-
     /// Broadcast to authenticated sessions whose depth is within `range` of `depth`.
     pub async fn broadcast_at(&self, depth: u32, range: u32, msg: &Message) {
         let sessions: Vec<Session> = self.inner.read().await.values().cloned().collect();

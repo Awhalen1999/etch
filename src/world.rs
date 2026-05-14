@@ -1,12 +1,5 @@
-//! In-memory world state and the global tick loop.
-//!
-//! `WorldState` will hold shared, non-per-session data (inscriptions,
-//! item locations, encounter state). Currently empty — placeholder.
-//!
-//! `spawn_tick` runs forever, once per second, advancing all
-//! time-driven systems. Currently handles stamina recovery; will
-//! also handle encounter rolls, psychosis, ambient effects, item
-//! spawning.
+//! Tick loop. One tokio task, once per second, drives all time-based systems:
+//! stamina recovery, encounter spawn rolls, inaction checks.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,6 +8,7 @@ use sqlx::SqlitePool;
 use tokio::time::interval;
 
 use crate::encounter;
+use crate::item;
 use crate::session::Sessions;
 
 /// Stamina recovery: 1 point every N ticks while resting.
@@ -26,20 +20,8 @@ const ENCOUNTER_ROLL_TICKS: u32 = 5;
 
 pub const STAMINA_MAX: u32 = 100;
 
-/// Shared, mutable world state. Empty for now.
-#[derive(Default)]
-pub struct WorldState {
-    // Future: inscriptions cache, item locations, encounter state, etc.
-}
-
-impl WorldState {
-    pub fn new() -> Arc<Self> {
-        Arc::new(Self::default())
-    }
-}
-
 /// Spawn the tick loop as a background task. Runs once per second forever.
-pub fn spawn_tick(sessions: Arc<Sessions>, _world: Arc<WorldState>, db: SqlitePool) {
+pub fn spawn_tick(sessions: Arc<Sessions>, db: SqlitePool) {
     tokio::spawn(async move {
         let mut ticker = interval(Duration::from_secs(1));
         let mut tick_count: u32 = 0;
@@ -48,7 +30,7 @@ pub fn spawn_tick(sessions: Arc<Sessions>, _world: Arc<WorldState>, db: SqlitePo
             tick_count = tick_count.wrapping_add(1);
 
             if tick_count % REST_RECOVERY_TICKS == 0 {
-                recover_stamina(&sessions).await;
+                recover_stamina(&sessions, &db).await;
             }
 
             // Roll for encounters on resting players.
@@ -66,13 +48,24 @@ pub fn spawn_tick(sessions: Arc<Sessions>, _world: Arc<WorldState>, db: SqlitePo
     });
 }
 
-/// Walk all sessions and grant +1 stamina to anyone currently resting.
-async fn recover_stamina(sessions: &Sessions) {
+/// Walk all sessions and grant +1 stamina to anyone currently resting,
+/// up to their cap (STAMINA_MAX plus any stamina-item bonus).
+async fn recover_stamina(sessions: &Sessions, db: &SqlitePool) {
     for s in sessions.all().await {
+        let Some(state) = s.player().await else {
+            continue;
+        };
+        if !state.resting {
+            continue;
+        }
+        let Some(name) = s.name().await else {
+            continue;
+        };
+        let cap = STAMINA_MAX + item::stamina_bonus(db, &name).await;
         let _ = s
-            .update_player(|state| {
-                if state.resting && state.stamina < STAMINA_MAX {
-                    state.stamina += 1;
+            .update_player(|st| {
+                if st.resting && st.stamina < cap {
+                    st.stamina += 1;
                 }
             })
             .await;

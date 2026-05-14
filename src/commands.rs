@@ -17,6 +17,9 @@ const COST_UP: u32 = 8;
 const MAX_MARK_LEN: usize = 240;
 const SHOUT_RANGE: u32 = 20;
 
+/// Maximum length of a single input line. Anything longer is silently dropped.
+const MAX_INPUT_LEN: usize = 1000;
+
 /// Process one line of input from a player.
 pub async fn handle_input(
     sessions: &Sessions,
@@ -24,6 +27,9 @@ pub async fn handle_input(
     session: &Session,
     line: &str,
 ) {
+    if line.len() > MAX_INPUT_LEN {
+        return;
+    }
     let line = line.trim();
     if line.is_empty() {
         return;

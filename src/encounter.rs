@@ -131,7 +131,7 @@ pub async fn check_inaction(db: &SqlitePool, session: &Session) {
 
     if elapsed >= INACTION_LIMIT {
         if enc.in_combat {
-            resolve_inaction(db, session, enc.next_attacks).await;
+            resolve_inaction(db, session).await;
         } else {
             session
                 .send_message(&Message::System("you waited too long.".into()))
@@ -161,7 +161,18 @@ pub async fn check_inaction(db: &SqlitePool, session: &Session) {
 
 /// Resolve an in-combat round where the player didn't act. Enemy attacking = take
 /// the hit (same as wrong /strike). Enemy open = the moment passes, no damage either way.
-async fn resolve_inaction(db: &SqlitePool, session: &Session, enemy_attacks: bool) {
+///
+/// Re-verifies state on entry: a concurrent /strike, /brace, or /escape may have
+/// raced us between the tick loop's read and this call.
+async fn resolve_inaction(db: &SqlitePool, session: &Session) {
+    let Some(enc) = session.get_encounter().await else {
+        return;
+    };
+    if !enc.in_combat || enc.started_at.elapsed() < INACTION_LIMIT {
+        return;
+    }
+    let enemy_attacks = enc.next_attacks;
+
     let fight_ended = if enemy_attacks {
         take_hit(db, session, "you don't move. it does.").await
     } else {

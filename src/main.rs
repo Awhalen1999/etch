@@ -32,7 +32,6 @@ mod session;
 mod world;
 
 use session::{Session, Sessions};
-use world::WorldState;
 
 const TCP_ADDR: &str = "0.0.0.0:4000";
 const HTTP_ADDR: &str = "0.0.0.0:8080";
@@ -43,7 +42,6 @@ const INDEX_HTML: &str = include_str!("../static/index.html");
 #[derive(Clone)]
 struct AppState {
     sessions: Arc<Sessions>,
-    world: Arc<WorldState>,
     db: SqlitePool,
 }
 
@@ -54,11 +52,10 @@ async fn main() -> Result<()> {
 
     let db = db::init(DB_PATH).await?;
     let sessions = Sessions::new();
-    let world = WorldState::new();
 
-    world::spawn_tick(sessions.clone(), world.clone(), db.clone());
+    world::spawn_tick(sessions.clone(), db.clone());
 
-    let state = AppState { sessions, world, db };
+    let state = AppState { sessions, db };
 
     spawn_tcp(state.clone());
     spawn_http(state.clone());
@@ -78,11 +75,18 @@ fn init_tracing() {
     tracing_subscriber::fmt().with_env_filter(filter).init();
 }
 
-/// Save the player's state on disconnect, if logged in.
+/// Save the player's state on disconnect, if logged in. Anti-cheese: disconnecting
+/// during an active encounter kills the player first, so they can't yank the cable
+/// to escape a losing fight.
 async fn save_on_disconnect(db: &SqlitePool, session: &Session) {
     let Some(name) = session.name().await else {
         return;
     };
+
+    if session.in_encounter().await {
+        death::die(db, session).await;
+    }
+
     let Some(state) = session.player().await else {
         return;
     };
