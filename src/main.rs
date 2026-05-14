@@ -31,7 +31,7 @@ mod render;
 mod session;
 mod world;
 
-use session::{Session, Sessions};
+use session::{Session, Sessions, TransportKind};
 
 const TCP_ADDR: &str = "0.0.0.0:4000";
 const HTTP_ADDR: &str = "0.0.0.0:8080";
@@ -123,7 +123,7 @@ async fn run_tcp(state: AppState) -> Result<()> {
 async fn handle_tcp(stream: TcpStream, state: AppState) -> Result<()> {
     let (read_half, mut write_half) = stream.into_split();
 
-    let (session, mut rx) = state.sessions.register().await;
+    let (session, mut rx) = state.sessions.register(TransportKind::Telnet).await;
     let session_id = session.id;
 
     session
@@ -186,7 +186,7 @@ async fn handle_ws(socket: WebSocket, state: AppState) {
 
     let (mut sink, mut stream) = socket.split();
 
-    let (session, mut rx) = state.sessions.register().await;
+    let (session, mut rx) = state.sessions.register(TransportKind::Browser).await;
     let session_id = session.id;
 
     session

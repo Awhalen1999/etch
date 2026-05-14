@@ -7,7 +7,7 @@ use crate::encounter;
 use crate::item;
 use crate::render::Message;
 use crate::session::{Session, Sessions};
-use crate::world::STAMINA_MAX;
+use crate::world::{self, STAMINA_MAX};
 
 /// Plain text reaches only players at the same depth.
 const SPEECH_RANGE: u32 = 0;
@@ -204,7 +204,7 @@ async fn cmd_me(db: &SqlitePool, session: &Session) {
     let Some(name) = session.name().await else {
         return;
     };
-    let band = band_name(state.depth);
+    let band = world::band_name(state.depth);
     let stam_bonus = item::stamina_bonus(db, &name).await;
     let max = STAMINA_MAX + stam_bonus;
 
@@ -237,20 +237,6 @@ async fn cmd_me(db: &SqlitePool, session: &Session) {
     }
 
     session.send_message(&Message::Private(lines)).await;
-}
-
-/// Map a depth to its band name.
-fn band_name(depth: u32) -> &'static str {
-    match depth {
-        0 => "the surface",
-        1..=30 => "the dust",
-        31..=80 => "the stone",
-        81..=120 => "the writing",
-        121..=160 => "the damp",
-        161..=199 => "the quiet",
-        200 => "the queen",
-        _ => "unknown",
-    }
 }
 
 /// Save state and return to the login prompt.
@@ -480,7 +466,7 @@ async fn attempt_login(
     name: &str,
     password: &str,
 ) {
-    match auth::login_or_register(db, name, password).await {
+    let logged_in = match auth::login_or_register(db, name, password).await {
         Ok(LoginOutcome::NewAccount(state)) => {
             session.set_name(name.to_lowercase()).await;
             session.set_player(state).await;
@@ -490,6 +476,7 @@ async fn attempt_login(
                     name.to_lowercase()
                 )))
                 .await;
+            true
         }
         Ok(LoginOutcome::Returning(state)) => {
             // Kick any existing session for this account.
@@ -504,17 +491,24 @@ async fn attempt_login(
                     state.depth
                 )))
                 .await;
+            true
         }
         Ok(LoginOutcome::WrongPassword) => {
             session
                 .send_message(&Message::Private("wrong password.".into()))
                 .await;
+            false
         }
         Err(e) => {
             session
                 .send_message(&Message::Private(format!("{e}")))
                 .await;
+            false
         }
+    };
+
+    if logged_in {
+        session.send_hud(db).await;
     }
 }
 

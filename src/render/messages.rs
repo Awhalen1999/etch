@@ -24,4 +24,15 @@ pub enum Message {
 
     /// A private response only the recipient sees (e.g. /who output).
     Private(String),
+
+    /// Snapshot of the player's persistent state for HUD rendering.
+    /// Browser routes to the HUD region; telnet ignores (future: ANSI sticky bar).
+    Hud {
+        name: String,
+        depth: u32,
+        stamina: u32,
+        max_stamina: u32,
+        deepest_depth: u32,
+        band: String,
+    },
 }

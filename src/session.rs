@@ -4,12 +4,24 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use sqlx::SqlitePool;
 use tokio::sync::{mpsc, RwLock};
 use tracing::debug;
 
+use crate::item;
 use crate::render::{render_for, Message};
+use crate::world;
 
 pub type SessionId = u64;
+
+/// Which transport a session is connected on. Drives how outgoing messages are rendered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TransportKind {
+    /// Raw TCP / telnet client. Receives ANSI text.
+    Telnet,
+    /// Browser over websocket. Receives JSON events.
+    Browser,
+}
 
 /// Movement cooldown — minimum time between successful /down or /up.
 const MOVE_COOLDOWN: Duration = Duration::from_secs(2);
@@ -45,6 +57,8 @@ pub struct EncounterState {
 #[derive(Clone)]
 pub struct Session {
     pub id: SessionId,
+    /// The transport this session is connected over. Selects the render path.
+    pub transport: TransportKind,
     pub outgoing: mpsc::Sender<String>,
     /// `None` until the player logs in.
     pub name: Arc<RwLock<Option<String>>>,
@@ -63,10 +77,36 @@ impl Session {
         let _ = self.outgoing.send(msg.into()).await;
     }
 
-    /// Send a typed message through the render pipeline.
+    /// Send a typed message through the render pipeline. Empty renders are skipped
+    /// (e.g. a `Hud` message on a telnet session that doesn't yet have ANSI bars).
     pub async fn send_message(&self, msg: &Message) {
         let bytes = render_for(self, msg);
+        if bytes.is_empty() {
+            return;
+        }
         let _ = self.outgoing.send(bytes).await;
+    }
+
+    /// Build and send the player's current HUD state. Browser clients route this
+    /// to the HUD region; telnet clients ignore it for now (future: ANSI sticky bar).
+    /// Callers should invoke after any state-changing action (move, rest, combat, etc.).
+    pub async fn send_hud(&self, db: &SqlitePool) {
+        let Some(name) = self.name().await else {
+            return;
+        };
+        let Some(state) = self.player().await else {
+            return;
+        };
+        let bonus = item::stamina_bonus(db, &name).await;
+        let msg = Message::Hud {
+            name,
+            depth: state.depth,
+            stamina: state.stamina,
+            max_stamina: world::STAMINA_MAX + bonus,
+            deepest_depth: state.deepest_depth,
+            band: world::band_name(state.depth).to_string(),
+        };
+        self.send_message(&msg).await;
     }
 
     pub async fn is_authenticated(&self) -> bool {
@@ -219,7 +259,7 @@ impl Sessions {
         Arc::new(Self::default())
     }
 
-    pub async fn register(&self) -> (Session, mpsc::Receiver<String>) {
+    pub async fn register(&self, transport: TransportKind) -> (Session, mpsc::Receiver<String>) {
         let mut next = self.next_id.write().await;
         *next += 1;
         let id = *next;
@@ -228,6 +268,7 @@ impl Sessions {
         let (tx, rx) = mpsc::channel::<String>(64);
         let session = Session {
             id,
+            transport,
             outgoing: tx,
             name: Arc::new(RwLock::new(None)),
             player: Arc::new(RwLock::new(None)),
@@ -237,7 +278,7 @@ impl Sessions {
         };
 
         self.inner.write().await.insert(id, session.clone());
-        debug!(session_id = id, "session registered");
+        debug!(session_id = id, ?transport, "session registered");
 
         (session, rx)
     }

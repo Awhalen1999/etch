@@ -20,6 +20,20 @@ const ENCOUNTER_ROLL_TICKS: u32 = 5;
 
 pub const STAMINA_MAX: u32 = 100;
 
+/// Map a depth to its band name. Pure function of depth.
+pub fn band_name(depth: u32) -> &'static str {
+    match depth {
+        0 => "the surface",
+        1..=30 => "the dust",
+        31..=80 => "the stone",
+        81..=120 => "the writing",
+        121..=160 => "the damp",
+        161..=199 => "the quiet",
+        200 => "the queen",
+        _ => "unknown",
+    }
+}
+
 /// Spawn the tick loop as a background task. Runs once per second forever.
 pub fn spawn_tick(sessions: Arc<Sessions>, db: SqlitePool) {
     tokio::spawn(async move {
