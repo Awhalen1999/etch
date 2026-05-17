@@ -263,8 +263,7 @@ its antennae twitch once. twice.
 
 it knows you're here.
 
-/fight to engage.
-/escape to run.
+press F to fight. E to escape.
 
 ## first-visit band messages
 
@@ -391,8 +390,7 @@ everything that comes down here ends up in front of her eventually.
 
 [pause]
 
-/fight to engage.
-/escape to run.
+press F to fight. E to escape.
 
 # cut scene 2 end
 

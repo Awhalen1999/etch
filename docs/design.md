@@ -93,22 +93,31 @@ only voices are the names already on the walls.
 
 ## commands
 
+text commands (typed at the prompt, outside of encounters):
+
 | command | does |
 |---|---|
 | `/down` | descend one level |
 | `/up` | ascend one level |
 | `/rest` | sit and recover stamina |
-| `/fight` | enter combat with a present enemy |
-| `/strike` | attack during combat (5 stamina) |
-| `/brace` | defend during combat (5 stamina) |
-| `/escape` | flee an encounter (30 stamina, moves you up ~10% of current depth) |
 | `/mark <text>` | carve inscription at current depth (synced via API) |
 | `/read` | read inscriptions at current depth (from local cache) |
-| `/take <item>` | pick up loot at current depth |
+| `/take` | pick up loot at current depth |
 | `/drop <item>` | leave item (removed from inventory) |
 | `/me` | character sheet |
 | `/help` | command reference |
 | `/quit` | save and exit |
+
+combat keystrokes (single keys, no `enter`, only during an encounter):
+
+| key | does |
+|---|---|
+| **F** | engage when an encounter spawns |
+| **S** | strike — press when the bar is in the sweet spot |
+| **B** | brace — same timing rule |
+| **E** | escape (30 stamina, moves you up ~10% of current depth) |
+
+text input is disabled during encounters; the combat keys take direct control.
 
 ## encounters
 
@@ -122,32 +131,74 @@ below depth 40, enemies can find you while resting. encounter rolls happen every
 | 121-160 | 15% |
 | 161-199 | 20% |
 
+an encounter has two phases: **pre-combat** (decide to engage or flee) and **in-combat** (actually fight).
+
+all encounters are ephemeral — no state is stored anywhere. fights are per-player and independent.
+
+### pre-combat
+
 when an enemy arrives:
-- normal `/up` and `/down` are disabled
-- you can `/fight` (enter combat) or `/escape` (flee)
-- if you do nothing for ~15 seconds, the enemy takes you. you die.
-- if you close or leave also die (anti cheese).
 
-all encounters are ephemeral — no state is stored in the database. fights are per-player and independent.
+- normal `/up`, `/down`, and text input are disabled
+- a timer line appears in the scroll, draining over 15 seconds
+- **F** to engage (free, no stamina cost)
+- **E** to escape (30 stamina, moves you up ~10% of depth)
+- if 15s expires with no input, the enemy takes you and you die
+- force-quitting during an encounter also kills the character (anti-cheese)
 
-### /fight (entering combat)
+### in-combat (single-press timing)
 
-no stamina cost to enter. combat is turn-based and round-by-round.
+once engaged, the layout shifts into a dedicated combat scene with three regions:
+
+- **enemy** — name + HP bar
+- **moment** — the current telegraph (bright) and last action result (dimmed)
+- **timing** — a bouncing fill bar with a sweet spot in the middle, plus key hints
 
 each round:
-1. a text telegraph describes what the enemy is doing
-2. player chooses `/strike` (5 stamina) or `/brace` (5 stamina)
-3. the enemy is either attacking (50% chance) or open (50% chance)
-4. outcome depends on the match:
+
+1. the enemy commits an intent (attacking or open, 50/50) and a telegraph string that matches
+2. the timing bar starts bouncing at constant speed (1.6s full cycle by default)
+3. the player presses **S** (strike) or **B** (brace) at any moment they choose — **no timeout**
+4. the bar position at press time decides the outcome:
+
+| timing | read | result |
+|---|---|---|
+| in sweet spot | matches enemy intent | action lands cleanly (deal damage / block) |
+| in sweet spot | wrong intent | wrong-call damage (the old math) |
+| outside sweet spot | any | action fails — enemy resolves anyway |
+
+skill axes:
+- **reading the telegraph** — pick S or B based on the prose
+- **timing the press** — wait for the bouncing fill to reach the sweet zone
+
+both must align for a clean hit.
+
+### wrong-call math (when timing lands but read is wrong)
 
 | | enemy attacks | enemy open |
 |---|---|---|
-| `/strike` | you take 40 stamina damage, deal 0 | you deal damage, cost 5 stamina |
-| `/brace` | you block, cost 5 stamina, deal 0 | you waste 5 stamina, deal 0 |
+| **S** | -40 stamina, deal 0 (faster, hits you) | deal 50+ damage, -5 stamina |
+| **B** | block, -5 stamina | wasted, -5 stamina |
 
 wrong strike is punishing (40 stamina). wrong brace is mild (5 stamina wasted). this rewards aggressive play with good reads.
 
-the telegraph hints at whether the enemy is attacking or open. at shallow depths, telegraphs are obvious. at deeper depths, telegraphs become subtler — and occasionally unreadable ("you can't tell what it's doing"), forcing a guess.
+### timing miss (press outside sweet spot, any read)
+
+the action doesn't fire. the enemy resolves on its own:
+- enemy attacking → you take the wrong-strike penalty (-40 stamina minus defense)
+- enemy open → "the moment is gone." no damage either way.
+
+### ambiguous telegraphs (deeper depths)
+
+at deeper depths, some telegraphs are intentionally unreadable ("it moves.", "something shifts.").
+the intent is still committed; the player just can't see it. they have to guess.
+
+| depth | ambiguous chance |
+|---|---|
+| 1-80 | 0% |
+| 81-120 | 10% |
+| 121-160 | 20% |
+| 161-199 | 30% |
 
 ### combat damage
 
@@ -157,36 +208,37 @@ enemy HP scales by depth:
 
 | band | enemy HP |
 |---|---|
-| 41-80 | ~100 |
-| 81-120 | ~150-200 |
-| 121-160 | ~200-250 |
-| 161-199 | ~250-300 |
+| 41-80 | 100 |
+| 81-120 | 175 |
+| 121-160 | 225 |
+| 161-199 | 275 |
+| 200 (queen) | 1000 |
 
-enemy health is displayed to the player during combat.
+enemy HP is shown live in the enemy region of the combat scene.
 
-### /escape
+### escape (E)
 
 - costs 30 stamina
 - moves you up by 10% of your current depth, rounded up, minimum depth 1
 - always succeeds. no roll.
-- available before or during combat
+- available before or during combat (during the timing bar, even)
 
-example: encounter at depth 150 → /escape costs 30 stamina and moves you to depth 135.
+example: encounter at depth 150 → E costs 30 stamina and moves you to depth 135.
 
 ## the queen (depth 200)
 
 a per-player boss encounter. same combat system as regular enemies, larger scale.
 
-- queen HP: 1000+
+- queen HP: 1000
 - entering depth 200 triggers a cutscene (see STORY.md)
-- same turn-based combat: telegraph → `/strike` or `/brace` each round
+- same single-press timing combat: bouncing bar, sweet spot, S/B/E keys
 - queen telegraphs are unique and harder to read than regular enemies
 - wrong strike penalty is 40 stamina (same as regular enemies)
-- `/escape` available: 30 stamina, moves to depth 180. resets queen HP.
+- E escape available: 30 stamina, moves to depth 180. resets queen HP.
 - if your stamina hits 0 mid-fight, you die
-- if you force-quit during the queen fight, your character dies (anti-cheese — game saves a death on exit-during-fight)
+- if you force-quit during the queen fight, your character dies (anti-cheese)
 - queen HP resets on death or quit. no saving progress. all-or-nothing.
-- if you kill the queen: cutscene plays, you receive the acid sac (special 6th inventory slot), `/ascent` becomes available
+- if you kill the queen: cutscene plays, you receive the acid sac (special 6th inventory slot), the ascent becomes available
 - killing the queen grants a permanent diacritic mark on your name — visible on every inscription you carve afterward
 
 ## items
@@ -264,15 +316,27 @@ does not survive:
 
 ## rendering
 
-the CLI renders the game with OpenTUI components. atmospheric effects (color
-roles, animations, optional CRT styling) live in the UI layer. see
-`docs/theme.md` for the palette and `docs/tech.md` for the directory layout.
+the CLI renders with [Ink](https://github.com/vadimdemedes/ink) — React for the
+terminal. Three layouts share the player HUD at the top and swap the rest
+based on encounter state:
+
+- **no encounter** — HUD + scroll (story, prose, command echoes) + input bar
+- **pre-combat**   — same layout, with a 15-second timer line appended at the
+  bottom of the scroll (right under "press F to fight, E to escape.")
+- **in-combat**    — HUD on top, then a dedicated `CombatScene` taking the
+  rest of the screen: enemy panel, moment panel (telegraph + last result),
+  timing panel (bouncing bar + key hints)
+
+the bouncing bar uses Unicode block characters (`▏▎▍▌▋▊▉█`) for sub-cell
+smoothness and re-renders at ~30fps. all color choices come from the
+shared theme; see `docs/theme.md` for the palette and `docs/tech.md` for
+the directory layout.
 
 ## tech
 
 see `docs/tech.md` for the full reference.
 
-short version: TypeScript + OpenTUI for the CLI (published to npm). Cloudflare
+short version: TypeScript + Ink for the CLI (published to npm). Cloudflare
 Workers + D1 for the inscription API. Astro on Cloudflare Pages for the
 landing site. No persistent server. No real-time multiplayer. Total cost: $0
 at expected scale.

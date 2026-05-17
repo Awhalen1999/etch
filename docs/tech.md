@@ -12,7 +12,7 @@ No persistent connections. No real-time multiplayer. No Rust server.
 
 | piece | what | hosted on |
 |---|---|---|
-| **CLI** (the game) | TypeScript + OpenTUI | published to npm, runs locally via `npx @etch/cli` |
+| **CLI** (the game) | TypeScript + Ink (React for the terminal) | published to npm, runs locally via `npx @etch/cli` |
 | **API** | TypeScript on Cloudflare Workers + D1 (SQLite) | Cloudflare, free tier |
 | **Landing page** | Astro | Cloudflare Pages, free |
 | **Domain + DNS** | `etch.rip` | Cloudflare |
@@ -39,7 +39,7 @@ No persistent connections. No real-time multiplayer. No Rust server.
                                        │
                           ┌────────────┴────────────┐
                           │  npx @etch/cli          │
-                          │  TypeScript + OpenTUI   │
+                          │  TypeScript + Ink       │
                           │  runs in player's term  │
                           │  local save + account   │
                           └─────────────────────────┘
@@ -50,10 +50,10 @@ No persistent connections. No real-time multiplayer. No Rust server.
 **Where the game lives.** Single-player. All game logic in TypeScript.
 
 - Runs locally in the player's terminal via `npx @etch/cli`
-- Renders TUI with OpenTUI components
+- Renders the UI with [Ink](https://github.com/vadimdemedes/ink) — React for the terminal
 - Stores state in `~/.etch/`:
   - `account.json` — `{ name, token }` (created on first launch)
-  - `save.json` — game state (depth, stamina, items, deepest)
+  - `save.json` — game state (depth, stamina, inventory, deepest, queen flag)
 - Connects to the API occasionally for inscription sync — non-blocking, offline-safe
 
 ### CLI directory shape
@@ -63,11 +63,27 @@ cli/
 ├── package.json          name: "@etch/cli", bin: { "etch": "./dist/index.js" }
 ├── tsconfig.json
 └── src/
-    ├── index.ts          entry — first-launch flow, then game loop
-    ├── game/             encounter logic, items, death, world ticks
-    ├── ui/               OpenTUI components (hud, scroll, input)
-    ├── api/              fetch wrapper for api.etch.rip
-    └── store/            local file I/O for account + save
+    ├── index.tsx         entry — render(<App />)
+    ├── game/             pure logic: encounter, items, death, world, commands, tick
+    │   ├── types.ts      PlayerState, EncounterState, Session, Outcome, Line
+    │   ├── world.ts      depth → band / encounter chance / enemy HP
+    │   ├── items.ts      catalog + bonus math + spawn roll
+    │   ├── encounter.ts  combat math, telegraph pools, bouncing-bar position
+    │   ├── commands.ts   text command dispatcher (out-of-combat)
+    │   └── tick.ts       1Hz tick: recovery, spawn rolls, pre-combat timeout
+    ├── ui/               Ink components
+    │   ├── app.tsx       screen router (loading → register → game)
+    │   ├── register.tsx  first-launch name prompt
+    │   ├── game.tsx      reducer + HUD + scroll + input + key dispatch
+    │   ├── combat-scene.tsx   full-screen combat layout
+    │   ├── hooks.ts      useTerminalHeight, useTextInput
+    │   ├── line-color.ts LineStyle → palette color
+    │   └── theme.ts      palette constants (sourced from docs/theme.md)
+    ├── api/
+    │   └── client.ts     fetch wrapper for api.etch.rip
+    └── store/
+        ├── account.ts    ~/.etch/account.json I/O
+        └── save.ts       ~/.etch/save.json I/O
 ```
 
 Game logic in one place. Future browser version would extract `game/` into a
@@ -168,13 +184,21 @@ Local saves survive across npm updates. Hand-editable if anyone really wants.
 
 ## tick / game loop
 
-Game runs in a single TypeScript loop driven by user input + setInterval for
-time-based effects. With no server, latency stops mattering — we can now do:
+State lives in a `useReducer` with three action types: `input` (text command),
+`combat` (single keystroke during an encounter), and `tick` (heartbeat).
 
-- Real-time telegraph windows (combat reaction timing)
-- Smooth stamina recovery animation
-- Per-frame screen redraw via OpenTUI
-- Tighter feedback loops without protocol roundtrips
+A `setInterval` dispatches `tick` actions at ~33ms (30fps). Game logic gates
+itself by `Date.now()`-since-last so the fast tick is purely a render concern.
+Per-tick work:
+
+- stamina recovery while resting (+1 per second)
+- encounter spawn rolls while resting (every 5s)
+- pre-combat inaction timeout (15s, then death)
+- combat bouncing-bar redraw (smooth via Unicode partial-block characters)
+
+In-combat has no timeout — the player times the bouncing bar at their own pace.
+Single source of truth for bar position: `barPosition(elapsedMs)` in
+`game/encounter.ts`, used by both the renderer and the hit detector.
 
 ## auth
 
