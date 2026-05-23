@@ -1,10 +1,22 @@
-// etch — entry point.
-//
-// All the real logic lives in ui/app.tsx. This file just mounts it.
+import { createCliRenderer } from "@opentui/core"
+import { createRoot, useKeyboard } from "@opentui/react"
 
-import React from "react";
-import { render } from "ink";
+function App() {
+  useKeyboard((key) => {
+    if (key.name === "q" || (key.name === "c" && key.ctrl)) {
+      process.exit(0)
+    }
+  })
 
-import { App } from "./ui/app";
+  return (
+    <box style={{ padding: 1, flexDirection: "column" }}>
+      <text>etch</text>
+      <text>the only way is down.</text>
+      <text> </text>
+      <text>press q to leave.</text>
+    </box>
+  )
+}
 
-render(<App />);
+const renderer = await createCliRenderer()
+createRoot(renderer).render(<App />)
