@@ -6,6 +6,7 @@
 
 import type { Emit, Inscription, LineStyle, PlayerState } from "./types.ts"
 import {
+  BASE_MAX_STAMINA,
   DOWN_COST,
   MAX_DEPTH,
   MIN_DEPTH,
@@ -14,9 +15,13 @@ import {
   bandForDepth,
 } from "./world.ts"
 import {
+  BASE_ATTACK,
+  BASE_DEFENSE,
   INVENTORY_MAX,
   ITEM_DEFS,
   arrivalLine,
+  attackPowerFor,
+  defensePowerFor,
   rollSpawn,
   statSuffix,
   withItemAdded,
@@ -170,11 +175,15 @@ function rest_(player: PlayerState, echo: Emit): CommandResult {
 }
 
 function me(player: PlayerState, echo: Emit): CommandResult {
+  const attack = attackPowerFor(player.items)
+  const defense = defensePowerFor(player.items)
   const lines: Emit[] = [
     echo,
     sys(`name: ${player.name}`),
     sys(`depth: ${player.depth} — ${bandForDepth(player.depth)}`),
-    sys(`stamina: ${player.stamina}/${player.maxStamina}`),
+    sys(`attack: ${attack} ${composition(attack - BASE_ATTACK)}`),
+    sys(`defense: ${defense} ${composition(defense - BASE_DEFENSE)}`),
+    sys(`stamina: ${player.stamina}/${player.maxStamina} ${composition(player.maxStamina - BASE_MAX_STAMINA)}`),
     sys(`deepest: ${player.deepest}`),
   ]
   if (player.items.length === 0) {
@@ -187,6 +196,10 @@ function me(player: PlayerState, echo: Emit): CommandResult {
     }
   }
   return { player, emit: lines }
+}
+
+function composition(bonus: number): string {
+  return bonus === 0 ? "(base)" : `(base +${bonus})`
 }
 
 function read(ctx: CommandContext, echo: Emit): CommandResult {

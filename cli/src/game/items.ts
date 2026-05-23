@@ -56,6 +56,8 @@ export const ITEM_DEFS: Record<ItemKind, ItemDef> = {
 
 export const INVENTORY_MAX = 5
 export const SPAWN_CHANCE = 0.25
+export const BASE_ATTACK = 50
+export const BASE_DEFENSE = 0
 
 // ---- Spawn pools ----
 
@@ -102,12 +104,24 @@ export function rollSpawn(depth: number): ItemKind | null {
 // ---- Inventory helpers (pure) ----
 
 export function maxStaminaFor(items: ItemKind[]): number {
-  let bonus = 0
+  return BASE_MAX_STAMINA + bonusFor(items, "stamina")
+}
+
+export function attackPowerFor(items: ItemKind[]): number {
+  return BASE_ATTACK + bonusFor(items, "attack")
+}
+
+export function defensePowerFor(items: ItemKind[]): number {
+  return BASE_DEFENSE + bonusFor(items, "defense")
+}
+
+function bonusFor(items: ItemKind[], category: ItemCategory): number {
+  let total = 0
   for (const kind of items) {
     const def = ITEM_DEFS[kind]
-    if (def.category === "stamina") bonus += def.value
+    if (def.category === category) total += def.value
   }
-  return BASE_MAX_STAMINA + bonus
+  return total
 }
 
 export function withItemAdded(player: PlayerState, kind: ItemKind): PlayerState {
@@ -136,7 +150,7 @@ export function withItemRemoved(player: PlayerState, index: number): PlayerState
 export function statSuffix(def: ItemDef): string {
   switch (def.category) {
     case "attack":  return `+${def.value} atk`
-    case "defense": return `-${def.value} def`
+    case "defense": return `+${def.value} def`
     case "stamina": return `+${def.value} max`
   }
 }
