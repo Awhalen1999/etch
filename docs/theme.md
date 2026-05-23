@@ -2,13 +2,14 @@
 
 Single source of truth for the game's visual identity. Used by:
 
-- **CLI** (TypeScript + Ink) — the game itself
+- **CLI** (TypeScript + OpenTUI on Bun) — the game itself
 - **Landing page** (Astro on Cloudflare Pages) — etch.rip
 
 Each client implements the same role table in whatever format its medium
-expects. The CLI passes hex strings directly to Ink's `<Text color="…">`
-prop; Ink translates to ANSI in the terminal. The landing page uses CSS
-custom properties.
+expects. The CLI passes hex strings to OpenTUI's `fg` / `bg` props on
+`<text>` and `<box>` (e.g. `<text fg="#c8a16f">…</text>`); OpenTUI's Zig
+core resolves them to terminal colors. The landing page uses CSS custom
+properties.
 
 When changing a color, update this doc *and* every implementation that uses it.
 
@@ -25,7 +26,7 @@ When changing a color, update this doc *and* every implementation that uses it.
 | rule     | `#2a2520` | 234      | borders, separators                 |
 
 **Mapped to:**
-- `cli/src/ui/theme.ts` — exports the palette for Ink components
+- `cli/src/ui/theme.ts` — exports the palette for OpenTUI components
 - `web/src/styles/theme.css` — defines CSS custom properties for the Astro
   landing page
 

@@ -4,7 +4,7 @@
 
 a multiplayer text horror mud. the surface is dead from heat. you fell into a mineshaft and can't climb out. the only way is down. enemies live below. the queen waits at depth 200.
 
-single-player game, runs locally. distributed as `npx @etch/cli`. a small REST API at `api.etch.rip` handles the only shared layer: inscriptions carved on walls. no real-time multiplayer.
+single-player game, runs locally. distributed as `npx etch`. a small REST API at `api.etch.rip` handles the only shared layer: inscriptions carved on walls. no real-time multiplayer.
 
 ## architecture
 
@@ -316,9 +316,9 @@ does not survive:
 
 ## rendering
 
-the CLI renders with [Ink](https://github.com/vadimdemedes/ink) — React for the
-terminal. Three layouts share the player HUD at the top and swap the rest
-based on encounter state:
+the CLI renders with [OpenTUI](https://github.com/anomalyco/opentui) — a React
+reconciler on a native Zig core, running under Bun. Three layouts share the
+player HUD at the top and swap the rest based on encounter state:
 
 - **no encounter** — HUD + scroll (story, prose, command echoes) + input bar
 - **pre-combat**   — same layout, with a 15-second timer line appended at the
@@ -336,7 +336,7 @@ the directory layout.
 
 see `docs/tech.md` for the full reference.
 
-short version: TypeScript + Ink for the CLI (published to npm). Cloudflare
-Workers + D1 for the inscription API. Astro on Cloudflare Pages for the
-landing site. No persistent server. No real-time multiplayer. Total cost: $0
-at expected scale.
+short version: TypeScript + OpenTUI on Bun for the CLI (published to npm as
+per-platform compiled binaries). Cloudflare Workers + D1 for the inscription
+API. Astro on Cloudflare Pages for the landing site. No persistent server.
+No real-time multiplayer. Total cost: $0 at expected scale.

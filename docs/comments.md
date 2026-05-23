@@ -1,68 +1,89 @@
-# Agents
+# Comment Convention
 
-## Comment Convention
+TypeScript, across the whole monorepo (cli, api, web).
 
-### Doc comments (`///`)
+Default to writing no comments. Code with well-named functions and types
+explains itself. Comments are for the *why* that the code can't show.
 
-Required on every public function, method, struct, enum, and trait.
-Keep to one line when possible. Describe *what* it does, not *how*.
+## File header
 
-```rust
-/// Send a message to this player. Silently drops if disconnected.
-pub async fn send(&self, msg: impl Into<String>) {
+Lead a non-trivial file with a brief `//` block: what the file is, and
+anything a reader genuinely needs upfront. A few lines max — not a
+paragraph.
+
+```ts
+// etch — inscription API.
+//
+// Three routes plus a sanity-check root:
+//   GET  /                      → "etch api"
+//   POST /api/account           → claim a name, get a token
+//   POST /api/inscriptions      → carve an inscription (token required)
+//   GET  /api/inscriptions      → list all inscriptions
+//
+// Backed by Cloudflare D1 (two tables: accounts, inscriptions).
 ```
 
-For enum variants, doc each variant inline:
+Skip the header on small files where the filename and exports already
+tell the story.
 
-```rust
-pub enum Message {
-    /// A system-generated line (welcome banners, server notices, etc.).
-    System(String),
-}
+## Section dividers
+
+Group related code with `// ---- Label ----` dividers. Capitalize the
+label, four dashes each side.
+
+```ts
+// ---- Types ----
+
+export interface Env { ... }
+
+// ---- Constants ----
+
+const NAME_MIN = 3;
+
+// ---- Entry point ----
+
+export default { ... }
 ```
 
-Multi-line doc comments are fine when a variant or field needs extra
-context. Use `///` on consecutive lines, not `/** */`.
+Use these freely in longer files. A reader should be able to skim the
+dividers to navigate.
 
-### Module-level docs (`//!`)
+## Inline comments
 
-Use `//!` at the top of a file to explain the module's purpose and how
-it fits into the larger system. Keep it brief — a few lines max.
+Only when the *why* isn't obvious from the code. Never restate what the
+code does.
 
-```rust
-//! Typed events that flow through the render pipeline.
-//!
-//! Code that wants to send something to a player builds a `Message`
-//! and lets the renderer turn it into bytes.
-```
-
-### Section dividers
-
-Use `// ---- LABEL ----` to separate logical sections within a file.
-All-caps label, four dashes each side.
-
-```rust
-// ---- TCP ----
-
-// ---- HTTP + WebSocket ----
-```
-
-### Inline comments (`//`)
-
-Use sparingly. Only when the *why* isn't obvious from the code.
-No comments that restate what the code does.
-
-```rust
+```ts
 // good — explains a non-obvious choice
-let (tx, rx) = mpsc::channel::<String>(64); // buffer enough to avoid backpressure under normal load
+const buf = new Uint8Array(64); // 64 is the largest frame any encoder emits
 
 // bad — restates the code
-let id = *next; // get the id
+const id = next++; // increment id
 ```
 
-### What NOT to comment
+## Doc comments (JSDoc / TSDoc)
+
+Avoid them as the default. TypeScript's types already describe
+signatures; editor tooltips read straight from those.
+
+Reach for `/** */` only when there's *non-obvious* behavior a caller
+needs to know — invariants, side effects, units, surprising edge cases.
+One short paragraph max.
+
+```ts
+/** Reads the save file. Returns null if it doesn't exist yet (first launch). */
+export function loadSave(): SaveState | null { ... }
+```
+
+Don't write `/** Loads the save. */ function loadSave()` — the name
+already says that.
+
+## What NOT to comment
 
 - Imports
 - Obvious control flow
-- Closing braces
-- TODO/FIXME without a tracked issue
+- Closing braces / JSX closing tags
+- Restating type annotations
+- `TODO` / `FIXME` without a tracked issue
+- The current task or PR ("added for the inscription flow", "fixes #42")
+  — those belong in commit messages, not the codebase

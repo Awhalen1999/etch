@@ -12,7 +12,7 @@ No persistent connections. No real-time multiplayer. No Rust server.
 
 | piece | what | hosted on |
 |---|---|---|
-| **CLI** (the game) | TypeScript + Ink (React for the terminal) | published to npm, runs locally via `npx @etch/cli` |
+| **CLI** (the game) | TypeScript + OpenTUI on Bun (React reconciler over a native Zig core) | published to npm as per-platform compiled binaries, runs locally via `npx etch` |
 | **API** | TypeScript on Cloudflare Workers + D1 (SQLite) | Cloudflare, free tier |
 | **Landing page** | Astro | Cloudflare Pages, free |
 | **Domain + DNS** | `etch.rip` | Cloudflare |
@@ -38,8 +38,8 @@ No persistent connections. No real-time multiplayer. No Rust server.
                                        │ HTTPS (occasional)
                                        │
                           ┌────────────┴────────────┐
-                          │  npx @etch/cli          │
-                          │  TypeScript + Ink       │
+                          │  npx etch               │
+                          │  Bun + OpenTUI          │
                           │  runs in player's term  │
                           │  local save + account   │
                           └─────────────────────────┘
@@ -47,10 +47,15 @@ No persistent connections. No real-time multiplayer. No Rust server.
 
 ## the CLI client
 
-**Where the game lives.** Single-player. All game logic in TypeScript.
+**Where the game lives.** Single-player. All game logic in TypeScript. Bun is
+the runtime (required for OpenTUI's Bun FFI bindings into the native Zig
+rendering core). pnpm is still the workspace package manager.
 
-- Runs locally in the player's terminal via `npx @etch/cli`
-- Renders the UI with [Ink](https://github.com/vadimdemedes/ink) — React for the terminal
+- Runs locally in the player's terminal via `npx etch`
+- Renders the UI with [OpenTUI](https://github.com/anomalyco/opentui) — a React
+  reconciler over a native Zig core. JSX intrinsics are lowercase (`<box>`,
+  `<text>`, `<input>`, `<select>`, …). Color and layout flow through the same
+  React tree the rest of the UI uses.
 - Stores state in `~/.etch/`:
   - `account.json` — `{ name, token }` (created on first launch)
   - `save.json` — game state (depth, stamina, inventory, deepest, queen flag)
@@ -60,10 +65,10 @@ No persistent connections. No real-time multiplayer. No Rust server.
 
 ```
 cli/
-├── package.json          name: "@etch/cli", bin: { "etch": "./dist/index.js" }
-├── tsconfig.json
+├── package.json          name: "@etch/cli", bin: { "etch": "./dist/etch" }
+├── tsconfig.json         jsxImportSource: "@opentui/react"
 └── src/
-    ├── index.tsx         entry — render(<App />)
+    ├── index.tsx         entry — createCliRenderer() + createRoot(...).render(<App />)
     ├── game/             pure logic: encounter, items, death, world, commands, tick
     │   ├── types.ts      PlayerState, EncounterState, Session, Outcome, Line
     │   ├── world.ts      depth → band / encounter chance / enemy HP
@@ -71,12 +76,12 @@ cli/
     │   ├── encounter.ts  combat math, telegraph pools, bouncing-bar position
     │   ├── commands.ts   text command dispatcher (out-of-combat)
     │   └── tick.ts       1Hz tick: recovery, spawn rolls, pre-combat timeout
-    ├── ui/               Ink components
+    ├── ui/               OpenTUI React components
     │   ├── app.tsx       screen router (loading → register → game)
     │   ├── register.tsx  first-launch name prompt
     │   ├── game.tsx      reducer + HUD + scroll + input + key dispatch
     │   ├── combat-scene.tsx   full-screen combat layout
-    │   ├── hooks.ts      useTerminalHeight, useTextInput
+    │   ├── hooks.ts      useTerminalDimensions wrappers, command-input hook
     │   ├── line-color.ts LineStyle → palette color
     │   └── theme.ts      palette constants (sourced from docs/theme.md)
     ├── api/
@@ -88,6 +93,9 @@ cli/
 
 Game logic in one place. Future browser version would extract `game/` into a
 shared package, but for now keep it together — refactor later if it happens.
+
+The current `src/` is a minimal OpenTUI bootstrap; the structure above is the
+target shape as game systems get ported over.
 
 ## the API
 
@@ -164,9 +172,28 @@ Everything on Cloudflare:
 |---|---|---|
 | API | `cd api && wrangler deploy` | Cloudflare Workers + D1 |
 | Landing | `cd web && wrangler pages deploy` (or git-connected) | Cloudflare Pages |
-| CLI | `cd cli && npm publish` | npm registry |
+| CLI | `bun build --compile` per platform → `npm publish` | npm registry |
 
 All free tier. Account + DNS through Cloudflare.
+
+### CLI distribution
+
+`npx etch` is the player-facing install, but the published `etch` package
+contains no JavaScript runtime of its own — it ships per-platform compiled
+binaries (same pattern as esbuild/biome/swc):
+
+- For each target (`bun-darwin-arm64`, `bun-darwin-x64`, `bun-linux-x64`,
+  `bun-linux-arm64`, `bun-windows-x64`), CI runs
+  `bun build --compile --target=<target> src/index.tsx --outfile=…` and
+  publishes a tiny subpackage containing just that binary
+  (e.g. `etch-darwin-arm64`).
+- The main `etch` package's `optionalDependencies` lists all platform
+  subpackages; npm installs only the one matching the user's OS/arch.
+- The main `bin` field points at a small JS shim that resolves and `exec`s
+  the platform binary.
+
+Result: `npx etch` works without Bun installed on the player's machine. Bun
+is only required for development and the build step.
 
 ## game state and persistence
 
