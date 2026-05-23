@@ -5,7 +5,7 @@
 //   - tick:    1Hz heartbeat for stamina recovery (later: encounter rolls,
 //              ambient lines, cooldowns)
 
-import type { GameAction, GameState, Line, PlayerState } from "./types.ts"
+import type { Emit, GameAction, GameState, Inscription, Line, PlayerState } from "./types.ts"
 import { runCommand } from "./commands.ts"
 import { BASE_MAX_STAMINA, MIN_DEPTH, REST_RECOVERY_PER_SECOND } from "./world.ts"
 
@@ -14,16 +14,22 @@ const MAX_LINES = 500
 export function reducer(state: GameState, action: GameAction): GameState {
   switch (action.kind) {
     case "command": {
-      const result = runCommand(state.player, action.raw, action.now)
-      let nextLineId = state.nextLineId
-      const newLines: Line[] = result.emit.map((e) => ({ id: nextLineId++, ...e }))
-      const lines = trim([...state.lines, ...newLines])
+      const result = runCommand(
+        { player: state.player, inscriptions: state.inscriptions },
+        action.raw,
+        action.now,
+      )
       return {
+        ...appendEmit(state, result.emit),
         player: result.player,
-        lines,
-        nextLineId,
         quitting: state.quitting || !!result.quit,
       }
+    }
+    case "emit": {
+      return appendEmit(state, action.lines)
+    }
+    case "setInscriptions": {
+      return { ...state, inscriptions: action.list }
     }
     case "tick": {
       if (!state.player.resting) return state
@@ -42,7 +48,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
   }
 }
 
-export function freshState(name: string): GameState {
+function appendEmit(state: GameState, emit: Emit[]): GameState {
+  if (emit.length === 0) return state
+  let nextLineId = state.nextLineId
+  const newLines: Line[] = emit.map((e) => ({ id: nextLineId++, ...e }))
+  return {
+    ...state,
+    lines: trim([...state.lines, ...newLines]),
+    nextLineId,
+  }
+}
+
+export function freshState(name: string, inscriptions: Inscription[]): GameState {
   return {
     player: freshPlayer(name),
     lines: [
@@ -51,10 +68,11 @@ export function freshState(name: string): GameState {
     ],
     nextLineId: 2,
     quitting: false,
+    inscriptions,
   }
 }
 
-export function resumeState(player: PlayerState): GameState {
+export function resumeState(player: PlayerState, inscriptions: Inscription[]): GameState {
   return {
     player,
     lines: [
@@ -62,6 +80,7 @@ export function resumeState(player: PlayerState): GameState {
     ],
     nextLineId: 1,
     quitting: false,
+    inscriptions,
   }
 }
 

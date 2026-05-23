@@ -15,8 +15,13 @@ import { theme } from "./theme.ts"
 import { StaminaBar } from "./stamina-bar.tsx"
 import { freshState, reducer, resumeState } from "../game/reducer.ts"
 import { loadSave, writeSave } from "../store/save.ts"
+import { loadInscriptions, writeInscriptions } from "../store/inscriptions.ts"
+import { getInscriptions, postInscription } from "../api/inscriptions.ts"
 import type { Account } from "../store/account.ts"
-import type { Line, LineStyle } from "../game/types.ts"
+import type { Emit, Line, LineStyle } from "../game/types.ts"
+
+const MARK_MAX_LENGTH = 240
+const SYNC_INTERVAL_MS = 5 * 60 * 1000
 
 interface GameProps {
   account: Account
@@ -24,9 +29,10 @@ interface GameProps {
 
 export function Game({ account }: GameProps) {
   const [state, dispatch] = useReducer(reducer, account, (acc) => {
+    const inscriptions = loadInscriptions()
     const saved = loadSave()
-    if (saved && saved.name === acc.name) return resumeState(saved)
-    return freshState(acc.name)
+    if (saved && saved.name === acc.name) return resumeState(saved, inscriptions)
+    return freshState(acc.name, inscriptions)
   })
 
   useEffect(() => {
@@ -38,6 +44,24 @@ export function Game({ account }: GameProps) {
     return () => clearInterval(id)
   }, [])
 
+  // Inscription sync: pull at launch, then every 5 min. Silent — only the
+  // arrival of new inscriptions is observable via /read.
+  useEffect(() => {
+    let cancelled = false
+    async function sync() {
+      const result = await getInscriptions()
+      if (cancelled || !result.ok) return
+      dispatch({ kind: "setInscriptions", list: result.data })
+      writeInscriptions(result.data)
+    }
+    void sync()
+    const id = setInterval(() => void sync(), SYNC_INTERVAL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
+
   const { renderer } = useAppContext()
   useEffect(() => {
     if (!state.quitting) return
@@ -45,6 +69,44 @@ export function Game({ account }: GameProps) {
     renderer?.destroy()
     process.exit(0)
   }, [state.quitting, state.player, renderer])
+
+  async function handleInput(raw: string) {
+    const trimmed = raw.trim()
+    if (trimmed === "/mark" || trimmed.startsWith("/mark ")) {
+      await handleMark(trimmed)
+      return
+    }
+    dispatch({ kind: "command", raw: trimmed, now: Date.now() })
+  }
+
+  async function handleMark(trimmed: string) {
+    const text = trimmed.slice("/mark".length).trim()
+    const echo: Emit = { style: "echo", text: trimmed }
+
+    if (text.length === 0) {
+      dispatch({ kind: "emit", lines: [echo, { style: "error", text: "carve what?" }] })
+      return
+    }
+    if (text.length > MARK_MAX_LENGTH) {
+      dispatch({
+        kind: "emit",
+        lines: [echo, { style: "error", text: `too much to carve. ${MARK_MAX_LENGTH} characters max.` }],
+      })
+      return
+    }
+
+    dispatch({ kind: "emit", lines: [echo, { style: "system", text: "carving..." }] })
+
+    const result = await postInscription(account.name, account.token, state.player.depth, text)
+    if (!result.ok) {
+      dispatch({ kind: "emit", lines: [{ style: "error", text: result.error }] })
+      return
+    }
+
+    dispatch({ kind: "setInscriptions", list: result.data })
+    writeInscriptions(result.data)
+    dispatch({ kind: "emit", lines: [{ style: "system", text: "carved." }] })
+  }
 
   const { width, height } = useTerminalDimensions()
   const scrollHeight = Math.max(1, height - 4)
@@ -64,9 +126,7 @@ export function Game({ account }: GameProps) {
         {visible.map((line) => <LineView key={line.id} line={line} />)}
       </box>
       <Rule width={width} />
-      <InputBar
-        onSubmit={(raw) => dispatch({ kind: "command", raw, now: Date.now() })}
-      />
+      <InputBar onSubmit={(raw) => void handleInput(raw)} />
     </box>
   )
 }

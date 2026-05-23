@@ -4,7 +4,7 @@
 // The reducer applies the result to the broader GameState (line buffer,
 // quit flag). Keeping this layer pure means new commands are just new cases.
 
-import type { LineStyle, PlayerState } from "./types.ts"
+import type { Emit, Inscription, LineStyle, PlayerState } from "./types.ts"
 import {
   DOWN_COST,
   MAX_DEPTH,
@@ -14,9 +14,9 @@ import {
   bandForDepth,
 } from "./world.ts"
 
-export interface Emit {
-  style: LineStyle
-  text: string
+export interface CommandContext {
+  player: PlayerState
+  inscriptions: Inscription[]
 }
 
 export interface CommandResult {
@@ -25,29 +25,31 @@ export interface CommandResult {
   quit?: boolean
 }
 
-export function runCommand(player: PlayerState, raw: string, now: number): CommandResult {
+export function runCommand(ctx: CommandContext, raw: string, now: number): CommandResult {
   const trimmed = raw.trim()
-  if (trimmed.length === 0) return { player, emit: [] }
+  if (trimmed.length === 0) return { player: ctx.player, emit: [] }
 
   const echo: Emit = { style: "echo", text: trimmed }
   const [head] = trimmed.split(/\s+/)
 
   switch (head) {
     case "/down":
-      return moveDown(player, now, echo)
+      return moveDown(ctx.player, now, echo)
     case "/up":
-      return moveUp(player, now, echo)
+      return moveUp(ctx.player, now, echo)
     case "/rest":
-      return rest_(player, echo)
+      return rest_(ctx.player, echo)
+    case "/read":
+      return read(ctx, echo)
     case "/me":
-      return me(player, echo)
+      return me(ctx.player, echo)
     case "/help":
-      return help(player, echo)
+      return help(ctx.player, echo)
     case "/quit":
-      return quit(player, echo)
+      return quit(ctx.player, echo)
     default:
       return {
-        player,
+        player: ctx.player,
         emit: [echo, { style: "error", text: `unknown command: ${trimmed}` }],
       }
   }
@@ -128,6 +130,20 @@ function me(player: PlayerState, echo: Emit): CommandResult {
   }
 }
 
+function read(ctx: CommandContext, echo: Emit): CommandResult {
+  const here = ctx.inscriptions.filter((i) => i.depth === ctx.player.depth)
+  if (here.length === 0) {
+    return { player: ctx.player, emit: [echo, sys("nothing carved here.")] }
+  }
+  const count = here.length
+  const header = sys(`${count} mark${count === 1 ? "" : "s"} at depth ${ctx.player.depth}.`)
+  const lines = here.map((i): Emit => ({
+    style: "story",
+    text: `"${i.text}"  — ${i.name} · ${i.written_at.slice(0, 10)}`,
+  }))
+  return { player: ctx.player, emit: [echo, header, ...lines] }
+}
+
 function help(player: PlayerState, echo: Emit): CommandResult {
   return {
     player,
@@ -136,6 +152,8 @@ function help(player: PlayerState, echo: Emit): CommandResult {
       sys("/down — descend one level"),
       sys("/up — ascend one level"),
       sys("/rest — sit and recover stamina"),
+      sys("/mark <text> — carve an inscription at this depth"),
+      sys("/read — read inscriptions at this depth"),
       sys("/me — character sheet"),
       sys("/quit — save and exit"),
     ],
