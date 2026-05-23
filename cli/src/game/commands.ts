@@ -13,6 +13,15 @@ import {
   UP_COST,
   bandForDepth,
 } from "./world.ts"
+import {
+  INVENTORY_MAX,
+  ITEM_DEFS,
+  arrivalLine,
+  rollSpawn,
+  statSuffix,
+  withItemAdded,
+  withItemRemoved,
+} from "./items.ts"
 
 export interface CommandContext {
   player: PlayerState
@@ -30,7 +39,9 @@ export function runCommand(ctx: CommandContext, raw: string, now: number): Comma
   if (trimmed.length === 0) return { player: ctx.player, emit: [] }
 
   const echo: Emit = { style: "echo", text: trimmed }
-  const [head] = trimmed.split(/\s+/)
+  const space = trimmed.indexOf(" ")
+  const head = space === -1 ? trimmed : trimmed.slice(0, space)
+  const arg = space === -1 ? "" : trimmed.slice(space + 1).trim()
 
   switch (head) {
     case "/down":
@@ -39,6 +50,10 @@ export function runCommand(ctx: CommandContext, raw: string, now: number): Comma
       return moveUp(ctx.player, now, echo)
     case "/rest":
       return rest_(ctx.player, echo)
+    case "/take":
+      return take(ctx.player, echo)
+    case "/drop":
+      return drop(ctx.player, arg, echo)
     case "/read":
       return read(ctx, echo)
     case "/me":
@@ -68,17 +83,15 @@ function moveDown(player: PlayerState, now: number, echo: Emit): CommandResult {
     return { player, emit: [echo, err("you need to catch your breath.")] }
   }
   const depth = player.depth + 1
-  return {
-    player: {
-      ...player,
-      depth,
-      deepest: Math.max(player.deepest, depth),
-      stamina: player.stamina - DOWN_COST,
-      lastMoveAt: now,
-      resting: false,
-    },
-    emit: [echo, { style: "system", text: `depth ${depth}.` }],
-  }
+  return arrive({
+    ...player,
+    depth,
+    deepest: Math.max(player.deepest, depth),
+    stamina: player.stamina - DOWN_COST,
+    lastMoveAt: now,
+    resting: false,
+    currentDepthItem: null,
+  }, echo)
 }
 
 function moveUp(player: PlayerState, now: number, echo: Emit): CommandResult {
@@ -92,15 +105,54 @@ function moveUp(player: PlayerState, now: number, echo: Emit): CommandResult {
     return { player, emit: [echo, err("you need to catch your breath.")] }
   }
   const depth = player.depth - 1
+  return arrive({
+    ...player,
+    depth,
+    stamina: player.stamina - UP_COST,
+    lastMoveAt: now,
+    resting: false,
+    currentDepthItem: null,
+  }, echo)
+}
+
+// Shared by /down and /up. Rolls for a spawn at the new depth and emits
+// the depth + arrival lines together.
+function arrive(player: PlayerState, echo: Emit): CommandResult {
+  const spawn = rollSpawn(player.depth)
+  const emit: Emit[] = [echo, sys(`depth ${player.depth}.`)]
+  if (spawn) {
+    emit.push({ style: "story", text: arrivalLine(spawn) })
+  }
+  return { player: { ...player, currentDepthItem: spawn }, emit }
+}
+
+function take(player: PlayerState, echo: Emit): CommandResult {
+  if (!player.currentDepthItem) {
+    return { player, emit: [echo, sys("nothing here.")] }
+  }
+  if (player.items.length >= INVENTORY_MAX) {
+    return { player, emit: [echo, sys("your hands are full.")] }
+  }
+  const def = ITEM_DEFS[player.currentDepthItem]
   return {
-    player: {
-      ...player,
-      depth,
-      stamina: player.stamina - UP_COST,
-      lastMoveAt: now,
-      resting: false,
-    },
-    emit: [echo, { style: "system", text: `depth ${depth}.` }],
+    player: withItemAdded(player, player.currentDepthItem),
+    emit: [echo, sys(`you take the ${def.name}.`)],
+  }
+}
+
+function drop(player: PlayerState, arg: string, echo: Emit): CommandResult {
+  if (arg.length === 0) {
+    return { player, emit: [echo, sys("drop what?")] }
+  }
+  const query = arg.toLowerCase()
+  const idx = player.items.findIndex((kind) => ITEM_DEFS[kind].name.toLowerCase().includes(query))
+  if (idx < 0) {
+    return { player, emit: [echo, sys("you don't have that.")] }
+  }
+  const name = ITEM_DEFS[player.items[idx]!].name
+  return {
+    player: withItemRemoved(player, idx),
+    emit: [echo, sys(`you leave the ${name} behind.`)],
   }
 }
 
@@ -118,16 +170,23 @@ function rest_(player: PlayerState, echo: Emit): CommandResult {
 }
 
 function me(player: PlayerState, echo: Emit): CommandResult {
-  return {
-    player,
-    emit: [
-      echo,
-      sys(`name: ${player.name}`),
-      sys(`depth: ${player.depth} — ${bandForDepth(player.depth)}`),
-      sys(`stamina: ${player.stamina}/${player.maxStamina}`),
-      sys(`deepest: ${player.deepest}`),
-    ],
+  const lines: Emit[] = [
+    echo,
+    sys(`name: ${player.name}`),
+    sys(`depth: ${player.depth} — ${bandForDepth(player.depth)}`),
+    sys(`stamina: ${player.stamina}/${player.maxStamina}`),
+    sys(`deepest: ${player.deepest}`),
+  ]
+  if (player.items.length === 0) {
+    lines.push(sys("inventory: empty"))
+  } else {
+    lines.push(sys("inventory:"))
+    for (const kind of player.items) {
+      const def = ITEM_DEFS[kind]
+      lines.push(sys(`  ${def.name} — ${statSuffix(def)}`))
+    }
   }
+  return { player, emit: lines }
 }
 
 function read(ctx: CommandContext, echo: Emit): CommandResult {
@@ -152,6 +211,8 @@ function help(player: PlayerState, echo: Emit): CommandResult {
       sys("/down — descend one level"),
       sys("/up — ascend one level"),
       sys("/rest — sit and recover stamina"),
+      sys("/take — pick up what's here"),
+      sys("/drop <item> — leave an item behind"),
       sys("/mark <text> — carve an inscription at this depth"),
       sys("/read — read inscriptions at this depth"),
       sys("/me — character sheet"),

@@ -73,10 +73,16 @@ export function freshState(name: string, inscriptions: Inscription[]): GameState
 }
 
 export function resumeState(player: PlayerState, inscriptions: Inscription[]): GameState {
+  // Migrate saves from before the items system landed.
+  const safe: PlayerState = {
+    ...player,
+    items: player.items ?? [],
+    currentDepthItem: player.currentDepthItem ?? null,
+  }
   return {
-    player,
+    player: safe,
     lines: [
-      { id: 0, style: "system", text: `you return to depth ${player.depth}.` },
+      { id: 0, style: "system", text: `you return to depth ${safe.depth}.` },
     ],
     nextLineId: 1,
     quitting: false,
@@ -93,6 +99,8 @@ export function freshPlayer(name: string): PlayerState {
     deepest: MIN_DEPTH,
     resting: false,
     lastMoveAt: 0,
+    items: [],
+    currentDepthItem: null,
   }
 }
 
