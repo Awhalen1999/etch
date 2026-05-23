@@ -1,5 +1,5 @@
 // Pure helpers about the world: depth bands, movement costs, recovery rates.
-// No state, no side effects — easy to test in isolation.
+// No state, no side effects - easy to test in isolation.
 
 export type Band = "the dust" | "the stone" | "the writing" | "the damp" | "the quiet" | "the queen"
 

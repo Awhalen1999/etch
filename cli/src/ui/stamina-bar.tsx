@@ -1,6 +1,6 @@
 // Sub-cell-smooth stamina bar.
 //
-// Unicode partial blocks give us 8 fill steps per cell — at default width
+// Unicode partial blocks give us 8 fill steps per cell - at default width
 // 16 that's 128 distinct fill levels. Color shifts as the player drains:
 // calm dust → warmer amber → deep red.
 

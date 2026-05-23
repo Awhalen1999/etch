@@ -2,7 +2,7 @@
 //
 // Validates the name client-side (length, charset), POSTs to the API
 // to claim it, and persists the returned token. Errors stay on screen
-// so the player can edit and retry — the <input> keeps its value across
+// so the player can edit and retry - the <input> keeps its value across
 // re-renders.
 
 import { useState } from "react"

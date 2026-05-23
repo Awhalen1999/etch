@@ -4,7 +4,7 @@
 // vary by band: shallower depths drop common gear, deeper depths drop the
 // rarer biological stuff scraped off the dead.
 //
-// All passive while held; stats stack additively. Dropping destroys —
+// All passive while held; stats stack additively. Dropping destroys -
 // there is no ground state.
 
 import type { ItemKind, ItemRarity, ItemCategory, PlayerState } from "./types.ts"
@@ -162,9 +162,9 @@ export function statSuffix(def: ItemDef): string {
 // keeps the etch tone (observational, lowercase, no exclamation).
 
 const ARRIVAL_TEMPLATES: Array<(name: string, stat: string) => string> = [
-  (name, stat) => `a ${name} here — ${stat}.`,
-  (name, stat) => `your light finds a ${name} — ${stat}.`,
-  (name, stat) => `something half-buried: a ${name} — ${stat}.`,
+  (name, stat) => `a ${name} here - ${stat}.`,
+  (name, stat) => `your light finds a ${name} - ${stat}.`,
+  (name, stat) => `something half-buried: a ${name} - ${stat}.`,
 ]
 
 export function arrivalLine(kind: ItemKind): string {

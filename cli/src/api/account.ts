@@ -1,3 +1,6 @@
+// Account endpoint. Called once, on first launch, to claim a name
+// and get back a token used for future writes.
+
 import { request, type Result } from "./client.ts"
 import type { Account } from "../store/account.ts"
 

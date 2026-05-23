@@ -57,7 +57,7 @@ export interface GameState {
   lines: Line[]
   nextLineId: number
   inscriptions: Inscription[]
-  /** Set true when the player runs /quit — index.tsx watches and exits. */
+  /** Set true when the player runs /quit - index.tsx watches and exits. */
   quitting: boolean
 }
 

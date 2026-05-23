@@ -14,18 +14,26 @@ export type Result<T> =
   | { ok: false; error: string }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<Result<T>> {
+  let res: Response
   try {
-    const res = await fetch(`${BASE}${path}`, {
+    res = await fetch(`${BASE}${path}`, {
       ...init,
       headers: { "content-type": "application/json", ...init?.headers },
     })
-    const body = await res.json().catch(() => null) as { error?: string } | T | null
-    if (!res.ok) {
-      const error = (body && typeof body === "object" && "error" in body && body.error) || `request failed (${res.status})`
-      return { ok: false, error }
-    }
-    return { ok: true, data: body as T }
   } catch {
     return { ok: false, error: "the wall is silent." }
   }
+
+  const body = await res.json().catch(() => null)
+  if (!res.ok) {
+    return { ok: false, error: errorMessage(body, res.status) }
+  }
+  return { ok: true, data: body as T }
+}
+
+function errorMessage(body: unknown, status: number): string {
+  if (body && typeof body === "object" && "error" in body && typeof body.error === "string") {
+    return body.error
+  }
+  return `request failed (${status})`
 }
