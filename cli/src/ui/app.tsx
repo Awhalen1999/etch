@@ -4,7 +4,7 @@
 import { useState } from "react"
 import { loadAccount, type Account } from "../store/account.ts"
 import { Register } from "./register.tsx"
-import { theme } from "./theme.ts"
+import { Game } from "./game.tsx"
 
 type Screen =
   | { kind: "register" }
@@ -20,10 +20,5 @@ export function App() {
     return <Register onDone={(account) => setScreen({ kind: "game", account })} />
   }
 
-  return (
-    <box style={{ padding: 2, flexDirection: "column" }}>
-      <text fg={theme.accent}>welcome, {screen.account.name}.</text>
-      <text fg={theme.dim}>the shaft waits.</text>
-    </box>
-  )
+  return <Game account={screen.account} />
 }
