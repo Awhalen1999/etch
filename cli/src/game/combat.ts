@@ -8,10 +8,13 @@
 // and an ambiguous pool that doesn't tell. Deeper depths see ambiguous
 // telegraphs more often (see ambiguousChanceFor in world.ts).
 
-import type { CombatRound, EnemyIntent } from "./types.ts"
+import type { CombatRound, EnemyIntent, ResultSeverity } from "./types.ts"
 import {
   BRACE_STAMINA_COST,
+  ROUND_CYCLE_MS,
   STRIKE_STAMINA_COST,
+  SWEET_SPOT_HIGH,
+  SWEET_SPOT_LOW,
   WRONG_STRIKE_PENALTY,
   ambiguousChanceFor,
 } from "./world.ts"
@@ -46,6 +49,22 @@ const AMBIGUOUS_TELEGRAPHS: string[] = [
   "your light catches nothing. only the clicking.",
 ]
 
+// ---- Bar position ----
+//
+// Shared by the renderer and the press resolver so what the player sees
+// is exactly what they're judged on. Triangular wave 0 -> 1 -> 0 across
+// ROUND_CYCLE_MS.
+
+export function barPosition(startedAt: number, now: number): number {
+  const elapsed = (now - startedAt) % ROUND_CYCLE_MS
+  const frac = elapsed / ROUND_CYCLE_MS
+  return 1 - Math.abs(2 * frac - 1)
+}
+
+export function inSweetSpot(position: number): boolean {
+  return position >= SWEET_SPOT_LOW && position <= SWEET_SPOT_HIGH
+}
+
 // ---- Round construction ----
 
 export function nextRound(depth: number, now: number): CombatRound {
@@ -69,6 +88,8 @@ export interface RoundOutcome {
   staminaCost: number
   /** Short prose line shown in the moment panel after the round. */
   message: string
+  /** Drives the color of the moment-panel result line. */
+  severity: ResultSeverity
 }
 
 export function resolveTiming(
@@ -86,12 +107,14 @@ export function resolveTiming(
         damage: 0,
         staminaCost: penaltyAfterDefense(defensePower),
         message: "you mistimed it. the blow lands.",
+        severity: "loss",
       }
     }
     return {
       damage: 0,
       staminaCost: 0,
       message: "the moment is gone.",
+      severity: "neutral",
     }
   }
 
@@ -102,6 +125,7 @@ export function resolveTiming(
         damage: attackPower,
         staminaCost: STRIKE_STAMINA_COST,
         message: "clean strike.",
+        severity: "win",
       }
     }
     // S into an attack: you swung as it hit you.
@@ -109,6 +133,7 @@ export function resolveTiming(
       damage: 0,
       staminaCost: penaltyAfterDefense(defensePower),
       message: "you swung into it. the blow connects.",
+      severity: "loss",
     }
   }
 
@@ -118,6 +143,7 @@ export function resolveTiming(
       damage: 0,
       staminaCost: BRACE_STAMINA_COST,
       message: "you brace. it glances off you.",
+      severity: "win",
     }
   }
   // B against an opening: wasted brace.
@@ -125,6 +151,7 @@ export function resolveTiming(
     damage: 0,
     staminaCost: BRACE_STAMINA_COST,
     message: "you braced nothing.",
+    severity: "neutral",
   }
 }
 

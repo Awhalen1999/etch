@@ -10,20 +10,22 @@
 // a 1Hz tick, periodic inscription sync, and graceful exit on /quit.
 
 import { useEffect, useReducer } from "react"
-import { useAppContext, useTerminalDimensions } from "@opentui/react"
+import { useAppContext, useKeyboard, useTerminalDimensions } from "@opentui/react"
 import { theme } from "./theme.ts"
 import { Hud } from "./hud.tsx"
 import { LineView } from "./line-view.tsx"
 import { InputBar } from "./input-bar.tsx"
 import { PreCombatBar } from "./precombat.tsx"
 import { CombatScene } from "./combat-scene.tsx"
-import { freshState, reducer, resumeState } from "../game/reducer.ts"
+import { freshPlayer, freshState, reducer, resumeState } from "../game/reducer.ts"
 import { runMark } from "../game/mark.ts"
 import { runDeath } from "../game/death.ts"
 import { loadSave, writeSave } from "../store/save.ts"
 import { loadInscriptions, writeInscriptions } from "../store/inscriptions.ts"
+import { clearCombatLock, readCombatLock, writeCombatLock } from "../store/combat-lock.ts"
 import { getInscriptions } from "../api/inscriptions.ts"
 import type { Account } from "../store/account.ts"
+import type { GameState } from "../game/types.ts"
 
 const TICK_MS = 1_000
 const SYNC_INTERVAL_MS = 5 * 60 * 1_000
@@ -33,15 +35,21 @@ interface GameProps {
 }
 
 export function Game({ account }: GameProps) {
-  const [state, dispatch] = useReducer(reducer, account, (acc) => {
-    const inscriptions = loadInscriptions()
-    const saved = loadSave()
-    if (saved && saved.name === acc.name) return resumeState(saved, inscriptions)
-    return freshState(acc.name, inscriptions)
-  })
+  const [state, dispatch] = useReducer(reducer, account, initState)
 
   // Persist on every player change. Tiny JSON; sync write is fine.
   useEffect(() => writeSave(state.player), [state.player])
+
+  // Cross-session anti-cheese: the lock exists while the player is in
+  // pre-combat or in-combat. If the process dies without clearing it,
+  // initState surfaces death recovery on the next launch.
+  useEffect(() => {
+    if (state.phase === "pre_combat" || state.phase === "in_combat") {
+      writeCombatLock({ name: account.name, depth: state.player.depth })
+    } else {
+      clearCombatLock()
+    }
+  }, [state.phase, account.name, state.player.depth])
 
   // 1Hz heartbeat for stamina recovery (and later: spawn rolls, ambient).
   useEffect(() => {
@@ -76,11 +84,28 @@ export function Game({ account }: GameProps) {
     process.exit(0)
   }, [state.quitting, state.player, renderer])
 
-  // Death: post the marker inscription, then dispatch respawn.
+  // Death: post the marker inscription, then dispatch respawn. If the
+  // death came from a force-quit, exit the process after the marker
+  // is carved so the player can't bypass the penalty.
   useEffect(() => {
     if (!state.pendingDeath) return
-    void runDeath(account, state.pendingDeath.depth, state.player, dispatch)
-  }, [state.pendingDeath, account])
+    const { depth, thenQuit } = state.pendingDeath
+    void (async () => {
+      await runDeath(account, depth, state.player, dispatch)
+      if (thenQuit) {
+        renderer?.destroy()
+        process.exit(0)
+      }
+    })()
+  }, [state.pendingDeath, account, renderer])
+
+  // Global Ctrl+C: anti-cheese during pre/in combat (counts as death);
+  // a clean quit otherwise. The reducer's forceQuit handler routes it.
+  useKeyboard((e) => {
+    if (e.name === "c" && e.ctrl) {
+      dispatch({ kind: "forceQuit", now: Date.now() })
+    }
+  })
 
   function handleInput(raw: string) {
     const trimmed = raw.trim()
@@ -157,4 +182,49 @@ export function Game({ account }: GameProps) {
 
 function Rule({ width }: { width: number }) {
   return <text fg={theme.rule}>{"─".repeat(Math.max(0, width))}</text>
+}
+
+// Initial reducer state. Three paths, in priority order:
+//   1. A stale combat lock means the player force-quit mid-fight. Boot
+//      into death-recovery: a reset player + pendingDeath, so the normal
+//      death pipeline carves the marker and the player wakes at depth 1.
+//   2. A saved player matches the logged-in account: resume them.
+//   3. Otherwise: fresh state for a new character.
+function initState(account: Account): GameState {
+  const inscriptions = loadInscriptions()
+  const saved = loadSave()
+  const lock = readCombatLock()
+
+  if (lock && saved && lock.name === account.name) {
+    clearCombatLock()
+    return recoverFromForceQuit(account, saved, lock.depth, inscriptions)
+  }
+  if (saved && saved.name === account.name) {
+    return resumeState(saved, inscriptions)
+  }
+  return freshState(account.name, inscriptions)
+}
+
+function recoverFromForceQuit(
+  account: Account,
+  saved: NonNullable<ReturnType<typeof loadSave>>,
+  deathDepth: number,
+  inscriptions: ReturnType<typeof loadInscriptions>,
+): GameState {
+  const reset = {
+    ...freshPlayer(account.name),
+    deepest: saved.deepest,
+    seenFirstEncounter: saved.seenFirstEncounter ?? false,
+  }
+  const base = freshState(account.name, inscriptions)
+  return {
+    ...base,
+    player: reset,
+    pendingDeath: { depth: deathDepth, thenQuit: false },
+    lines: [
+      { id: 0, style: "story", text: "the dark took you." },
+      { id: 1, style: "system", text: "you wake at depth 1." },
+    ],
+    nextLineId: 2,
+  }
 }

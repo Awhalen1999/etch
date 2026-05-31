@@ -10,12 +10,9 @@
 
 import { useEffect, useState } from "react"
 import { useKeyboard } from "@opentui/react"
-import type { CombatState } from "../game/types.ts"
-import {
-  ROUND_CYCLE_MS,
-  SWEET_SPOT_HIGH,
-  SWEET_SPOT_LOW,
-} from "../game/world.ts"
+import type { CombatState, ResultSeverity } from "../game/types.ts"
+import { SWEET_SPOT_HIGH, SWEET_SPOT_LOW } from "../game/world.ts"
+import { barPosition } from "../game/combat.ts"
 import { theme } from "./theme.ts"
 
 interface CombatSceneProps {
@@ -64,7 +61,7 @@ function EnemyPanel({ hp, maxHp }: { hp: number; maxHp: number }) {
 }
 
 // Two zones, fixed height so the bar below doesn't shift between rounds:
-//   line 1: the previous round's result, dimmed with a "» " lead-in
+//   line 1: the previous round's result, color-coded by severity
 //   line 2: blank breathing row
 //   line 3: the current telegraph, bright
 function MomentPanel({
@@ -72,35 +69,51 @@ function MomentPanel({
   lastResult,
 }: {
   telegraph: string
-  lastResult: string | null
+  lastResult: { text: string; severity: ResultSeverity } | null
 }) {
   return (
     <box style={{ flexDirection: "column" }}>
-      <text fg={theme.dim}>{lastResult ? `» ${lastResult}` : " "}</text>
+      <text fg={lastResult ? colorForSeverity(lastResult.severity) : theme.dim}>
+        {lastResult ? `» ${lastResult.text}` : " "}
+      </text>
       <text>{" "}</text>
       <text fg={theme.fg}>{telegraph}</text>
     </box>
   )
 }
 
+function colorForSeverity(severity: ResultSeverity): string {
+  switch (severity) {
+    case "win":     return theme.chat
+    case "loss":    return theme.danger
+    case "neutral": return theme.dim
+  }
+}
+
+// A solid colored track with a single bright tick sliding across it.
+// The track is dim outside the sweet zone, accent inside. The tick is
+// 1 cell wide; when it sits between cells it spans two using partial
+// block characters with inverted fg/bg so motion is sub-cell smooth.
 function TimingPanel({ position }: { position: number }) {
   const sweetLow = Math.floor(TIMING_BAR_WIDTH * SWEET_SPOT_LOW)
   const sweetHigh = Math.floor(TIMING_BAR_WIDTH * SWEET_SPOT_HIGH)
-  const indicator = Math.min(TIMING_BAR_WIDTH - 1, Math.floor(position * TIMING_BAR_WIDTH))
+
+  // The tick's leading edge in eighths. Tick spans tickCell and tickCell+1
+  // when tickFrac > 0; otherwise it sits cleanly inside tickCell.
+  const sub = Math.round(position * (TIMING_BAR_WIDTH - 1) * 8)
+  const tickCell = Math.floor(sub / 8)
+  const tickFrac = sub % 8
+
+  function trackBg(i: number): string {
+    return i >= sweetLow && i <= sweetHigh ? theme.accent : theme.dim
+  }
 
   return (
     <box style={{ flexDirection: "column" }}>
       <text>
-        {Array.from({ length: TIMING_BAR_WIDTH }, (_, i) => {
-          if (i === indicator) return <span key={i} fg={theme.fg}>{"█"}</span>
-          const inSweet = i >= sweetLow && i <= sweetHigh
-          return (
-            <span key={i} fg={inSweet ? theme.accent : theme.rule}>
-              {inSweet ? "▓" : "░"}
-            </span>
-          )
-        })}
+        {Array.from({ length: TIMING_BAR_WIDTH }, (_, i) => renderCell(i))}
       </text>
+      <text>{" "}</text>
       <text>
         <span fg={theme.accent}>{"S"}</span>
         <span fg={theme.dim}>{" strike   "}</span>
@@ -111,6 +124,27 @@ function TimingPanel({ position }: { position: number }) {
       </text>
     </box>
   )
+
+  function renderCell(i: number) {
+    const bg = trackBg(i)
+
+    // Tick lands cleanly inside this cell.
+    if (i === tickCell && tickFrac === 0) {
+      return <span key={i} fg={theme.fg} bg={bg}>{"█"}</span>
+    }
+    // Trailing cell of a straddled tick: tick on the right, track on the left.
+    // Inverted colors so EIGHTHS[tickFrac] paints fg=track on the left
+    // tickFrac/8 and bg=tick on the right (8 - tickFrac)/8.
+    if (i === tickCell && tickFrac > 0) {
+      return <span key={i} fg={bg} bg={theme.fg}>{EIGHTHS[tickFrac]}</span>
+    }
+    // Leading cell of a straddled tick: tick on the left, track on the right.
+    if (i === tickCell + 1 && tickFrac > 0) {
+      return <span key={i} fg={theme.fg} bg={bg}>{EIGHTHS[tickFrac]}</span>
+    }
+    // Plain track cell.
+    return <span key={i} bg={bg}>{" "}</span>
+  }
 }
 
 function Spacer() {
@@ -118,13 +152,6 @@ function Spacer() {
 }
 
 // ---- Helpers ----
-
-// Triangular wave 0 -> 1 -> 0 over one ROUND_CYCLE_MS period.
-function barPosition(startedAt: number, now: number): number {
-  const elapsed = (now - startedAt) % ROUND_CYCLE_MS
-  const frac = elapsed / ROUND_CYCLE_MS
-  return 1 - Math.abs(2 * frac - 1)
-}
 
 function bar(ratio: number, width: number): { full: string; empty: string } {
   const clamped = Math.max(0, Math.min(1, ratio))

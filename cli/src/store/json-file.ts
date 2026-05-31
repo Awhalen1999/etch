@@ -5,7 +5,7 @@
 // means each store stays a 10-line "what's the type, what's the name"
 // declaration.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
@@ -24,4 +24,14 @@ export function readJson<T>(name: string): T | null {
 export function writeJson(name: string, data: unknown): void {
   mkdirSync(DIR, { recursive: true })
   writeFileSync(join(DIR, name), JSON.stringify(data, null, 2), "utf8")
+}
+
+export function clearJson(name: string): void {
+  const file = join(DIR, name)
+  if (!existsSync(file)) return
+  try {
+    unlinkSync(file)
+  } catch {
+    // Best-effort: another process may have removed it already.
+  }
 }

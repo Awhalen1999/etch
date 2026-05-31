@@ -1,12 +1,16 @@
 // Single useReducer that owns all game state.
 //
 // Actions:
-//   - command: a typed input from the prompt (explore only)
-//   - tick:    1Hz heartbeat. Drains cutscene queues, recovers stamina,
-//              rolls for encounters, and times out pre-combat.
-//   - engage:  F pressed during pre-combat. Slice-1 stub resolves the fight.
-//   - escape:  E pressed during pre-combat. -30 stamina, depth up ~10%.
-//   - respawn: UI calls this after the death-marker inscription is posted.
+//   - command:        a typed input from the prompt (explore only)
+//   - emit:           append lines to the scroll (used by side-effect helpers)
+//   - setInscriptions: replace the cached inscription list
+//   - tick:           1Hz heartbeat. Drains cutscenes, recovers stamina,
+//                     rolls for encounters, and times out pre-combat
+//   - engage:         F pressed during pre-combat. Hands off to in_combat
+//   - escape:         E pressed during pre/in combat. -30 stamina, depth up ~10%
+//   - strike / brace: S / B pressed during in_combat. Resolves the round
+//   - forceQuit:      Ctrl+C. Death if pre/in combat, clean exit otherwise
+//   - respawn:        UI calls this after the death-marker is carved
 
 import type {
   CombatState,
@@ -29,14 +33,11 @@ import {
   ESCAPE_STAMINA_COST,
   MIN_DEPTH,
   REST_RECOVERY_PER_SECOND,
-  ROUND_CYCLE_MS,
-  SWEET_SPOT_HIGH,
-  SWEET_SPOT_LOW,
   enemyHpFor,
   escapeDepthFrom,
 } from "./world.ts"
 import { arrivalLinesFor, firstEncounterLines, promptLine, rollEncounter } from "./encounter.ts"
-import { nextRound, resolveTiming } from "./combat.ts"
+import { barPosition, inSweetSpot, nextRound, resolveTiming } from "./combat.ts"
 import { attackPowerFor, defensePowerFor } from "./items.ts"
 
 const MAX_LINES = 500
@@ -113,6 +114,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
         pendingDeath: null,
       }
     }
+    case "forceQuit": {
+      // Anti-cheese: bailing out of pre-combat or combat counts as a
+      // death. Anywhere else it's just a clean exit.
+      if (state.phase === "pre_combat" || state.phase === "in_combat") {
+        return enterDeath(state, "you tried to flee. it caught you.", true)
+      }
+      return { ...state, quitting: true }
+    }
   }
 }
 
@@ -175,7 +184,7 @@ function advanceExplore(state: GameState, now: number): GameState {
     if (now - next.lastEncounterRollAt >= ENCOUNTER_ROLL_INTERVAL_MS) {
       next = { ...next, lastEncounterRollAt: now }
       const enc = rollEncounter(next.player.depth, now)
-      if (enc) next = enterEncounter(next, now)
+      if (enc) next = enterEncounter(next, enc.enemy, now)
     }
   }
   return next
@@ -221,17 +230,11 @@ function resolveCombatPress(
   key: "S" | "B",
   now: number,
 ): GameState {
-  const round = combat.round
-  const elapsed = (now - round.startedAt) % ROUND_CYCLE_MS
-  const frac = elapsed / ROUND_CYCLE_MS
-  // Triangular wave 0 -> 1 -> 0 across the cycle.
-  const pos = 1 - Math.abs(2 * frac - 1)
-  const inSweetSpot = pos >= SWEET_SPOT_LOW && pos <= SWEET_SPOT_HIGH
-
+  const pos = barPosition(combat.round.startedAt, now)
   const outcome = resolveTiming(
     key,
-    round.intent,
-    inSweetSpot,
+    combat.round.intent,
+    inSweetSpot(pos),
     attackPowerFor(state.player.items),
     defensePowerFor(state.player.items),
   )
@@ -264,23 +267,23 @@ function resolveCombatPress(
     combat: {
       ...combat,
       enemyHp: newHp,
-      lastResult: outcome.message,
+      lastResult: { text: outcome.message, severity: outcome.severity },
       round: nextRound(state.player.depth, now),
     },
     player: playerAfter,
   }
 }
 
-function enterEncounter(state: GameState, now: number): GameState {
+function enterEncounter(state: GameState, enemy: EnemyKind, now: number): GameState {
   const first = !state.player.seenFirstEncounter
-  const intro = first ? firstEncounterLines() : arrivalLinesFor("ant")
+  const intro = first ? firstEncounterLines() : arrivalLinesFor(enemy)
   const script: Emit[] = [...intro, promptLine()]
   return {
     ...state,
     cutscene: {
       remaining: script,
       nextAt: now + CUTSCENE_LINE_MS,
-      onDone: { kind: "encounter", enemy: "ant" },
+      onDone: { kind: "encounter", enemy },
     },
     player: {
       ...state.player,
@@ -290,19 +293,22 @@ function enterEncounter(state: GameState, now: number): GameState {
   }
 }
 
-function enterDeath(state: GameState, prose: string): GameState {
+function enterDeath(state: GameState, prose: string, thenQuit = false): GameState {
   const deathDepth = state.player.depth
-  const lines: Emit[] = [
-    { style: "story", text: prose },
-    { style: "system", text: "you wake at depth 1." },
-  ]
+  // A force-quit-death skips the respawn flavor — the player is leaving.
+  const lines: Emit[] = thenQuit
+    ? [{ style: "story", text: prose }]
+    : [
+        { style: "story", text: prose },
+        { style: "system", text: "you wake at depth 1." },
+      ]
   return {
     ...appendEmit(state, lines),
     phase: "explore",
     encounter: null,
     combat: null,
     cutscene: null,
-    pendingDeath: { depth: deathDepth },
+    pendingDeath: { depth: deathDepth, thenQuit },
     player: {
       ...freshPlayer(state.player.name),
       // Preserve progress that survives death.

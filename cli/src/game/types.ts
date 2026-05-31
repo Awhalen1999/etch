@@ -63,13 +63,17 @@ export interface CombatRound {
   startedAt: number
 }
 
+// What kind of result the previous round produced. Drives the color
+// of the "» ..." line in the moment panel so the player feels hits.
+export type ResultSeverity = "win" | "loss" | "neutral"
+
 export interface CombatState {
   enemy: EnemyKind
   enemyMaxHp: number
   enemyHp: number
   round: CombatRound
-  /** Dim line under the current telegraph: result of the previous press. */
-  lastResult: string | null
+  /** Result of the previous press, or null if no round has resolved yet. */
+  lastResult: { text: string; severity: ResultSeverity } | null
 }
 
 // A queue of lines emitted one-per-second. While a cutscene is in flight,
@@ -117,8 +121,10 @@ export interface GameState {
   /**
    * Set when the player dies. UI watches this, carves the death-marker
    * inscription via the API, then dispatches `respawn` to clear it.
+   * `thenQuit` is set when the death came from a force-quit — after the
+   * marker is carved the renderer is destroyed and the process exits.
    */
-  pendingDeath: { depth: number } | null
+  pendingDeath: { depth: number; thenQuit: boolean } | null
 }
 
 export type GameAction =
@@ -130,4 +136,5 @@ export type GameAction =
   | { kind: "escape"; now: number }
   | { kind: "strike"; now: number }
   | { kind: "brace"; now: number }
+  | { kind: "forceQuit"; now: number }
   | { kind: "respawn"; player: PlayerState }
