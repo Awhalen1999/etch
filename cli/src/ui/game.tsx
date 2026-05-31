@@ -15,8 +15,10 @@ import { theme } from "./theme.ts"
 import { Hud } from "./hud.tsx"
 import { LineView } from "./line-view.tsx"
 import { InputBar } from "./input-bar.tsx"
+import { PreCombatBar } from "./precombat.tsx"
 import { freshState, reducer, resumeState } from "../game/reducer.ts"
 import { runMark } from "../game/mark.ts"
+import { runDeath } from "../game/death.ts"
 import { loadSave, writeSave } from "../store/save.ts"
 import { loadInscriptions, writeInscriptions } from "../store/inscriptions.ts"
 import { getInscriptions } from "../api/inscriptions.ts"
@@ -73,6 +75,12 @@ export function Game({ account }: GameProps) {
     process.exit(0)
   }, [state.quitting, state.player, renderer])
 
+  // Death: post the marker inscription, then dispatch respawn.
+  useEffect(() => {
+    if (!state.pendingDeath) return
+    void runDeath(account, state.pendingDeath.depth, state.player, dispatch)
+  }, [state.pendingDeath, account])
+
   function handleInput(raw: string) {
     const trimmed = raw.trim()
     if (trimmed === "/mark" || trimmed.startsWith("/mark ")) {
@@ -99,9 +107,27 @@ export function Game({ account }: GameProps) {
         {visible.map((line) => <LineView key={line.id} line={line} />)}
       </box>
       <Rule width={width} />
-      <InputBar onSubmit={handleInput} />
+      {renderFooter()}
     </box>
   )
+
+  // The bottom row depends on what the player can do right now:
+  //   - cutscene playing  -> nothing (the script reveals at its own pace)
+  //   - pre-combat       -> F/E keys + draining countdown bar
+  //   - exploring        -> the > input prompt
+  function renderFooter() {
+    if (state.cutscene) return null
+    if (state.phase === "pre_combat" && state.encounter) {
+      return (
+        <PreCombatBar
+          startedAt={state.encounter.startedAt}
+          onEngage={() => dispatch({ kind: "engage", now: Date.now() })}
+          onEscape={() => dispatch({ kind: "escape", now: Date.now() })}
+        />
+      )
+    }
+    return <InputBar onSubmit={handleInput} />
+  }
 }
 
 function Rule({ width }: { width: number }) {

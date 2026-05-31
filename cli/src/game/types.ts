@@ -37,7 +37,33 @@ export interface PlayerState {
   items: ItemKind[]
   /** What's available to /take at the current depth. Cleared on move. */
   currentDepthItem: ItemKind | null
+  /** Has the one-time ant cutscene played? Sticks after the first encounter. */
+  seenFirstEncounter: boolean
 }
+
+export type EnemyKind = "ant"
+
+export type Phase = "explore" | "pre_combat"
+
+export interface EncounterState {
+  enemy: EnemyKind
+  /** Epoch ms when the encounter began. Used to compute the 15s timeout. */
+  startedAt: number
+}
+
+// A queue of lines emitted one-per-second. While a cutscene is in flight,
+// the player can't act and nothing else advances. When the queue empties,
+// the `onDone` transition fires.
+export interface Cutscene {
+  remaining: Emit[]
+  /** Epoch ms when the next line is due. */
+  nextAt: number
+  onDone: CutsceneDone
+}
+
+export type CutsceneDone =
+  | { kind: "none" }
+  | { kind: "encounter"; enemy: EnemyKind }
 
 export interface Inscription {
   id: number
@@ -59,6 +85,17 @@ export interface GameState {
   inscriptions: Inscription[]
   /** Set true when the player runs /quit - index.tsx watches and exits. */
   quitting: boolean
+  phase: Phase
+  encounter: EncounterState | null
+  /** Epoch ms of the last encounter roll. Throttles tick rolls to 5s. */
+  lastEncounterRollAt: number
+  /** Active cutscene, or null when no script is playing. */
+  cutscene: Cutscene | null
+  /**
+   * Set when the player dies. UI watches this, carves the death-marker
+   * inscription via the API, then dispatches `respawn` to clear it.
+   */
+  pendingDeath: { depth: number } | null
 }
 
 export type GameAction =
@@ -66,3 +103,6 @@ export type GameAction =
   | { kind: "tick"; now: number }
   | { kind: "emit"; lines: Emit[] }
   | { kind: "setInscriptions"; list: Inscription[] }
+  | { kind: "engage"; now: number }
+  | { kind: "escape"; now: number }
+  | { kind: "respawn"; player: PlayerState }
