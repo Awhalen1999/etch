@@ -39,6 +39,8 @@ export interface PlayerState {
   currentDepthItem: ItemKind | null
   /** Has the one-time ant cutscene played? Sticks after the first encounter. */
   seenFirstEncounter: boolean
+  /** Has the new-account opening cutscene played? Set on first launch. */
+  seenOpening: boolean
 }
 
 export type EnemyKind = "ant"

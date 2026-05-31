@@ -38,6 +38,7 @@ import {
 } from "./world.ts"
 import { arrivalLinesFor, firstEncounterLines, promptLine, rollEncounter } from "./encounter.ts"
 import { barPosition, inSweetSpot, nextRound, resolveTiming } from "./combat.ts"
+import { bandCrossing, bandFirstVisitLines, openingCutsceneLines } from "./cutscenes.ts"
 import { attackPowerFor, defensePowerFor } from "./items.ts"
 
 const MAX_LINES = 500
@@ -52,11 +53,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
         action.raw,
         action.now,
       )
-      return {
+      const base: GameState = {
         ...appendEmit(state, result.emit),
         player: result.player,
         quitting: state.quitting || !!result.quit,
       }
+      // If this command pushed deepest_depth into a new band, queue the
+      // band's one-time first-visit cutscene right after the echo lands.
+      return queueBandFirstVisit(base, state.player.deepest, result.player.deepest, action.now)
     }
     case "emit": {
       return appendEmit(state, action.lines)
@@ -274,6 +278,26 @@ function resolveCombatPress(
   }
 }
 
+function queueBandFirstVisit(
+  state: GameState,
+  oldDeepest: number,
+  newDeepest: number,
+  now: number,
+): GameState {
+  const band = bandCrossing(oldDeepest, newDeepest)
+  if (!band) return state
+  const lines = bandFirstVisitLines(band)
+  if (!lines) return state
+  return {
+    ...state,
+    cutscene: {
+      remaining: lines,
+      nextAt: now + CUTSCENE_LINE_MS,
+      onDone: { kind: "none" },
+    },
+  }
+}
+
 function enterEncounter(state: GameState, enemy: EnemyKind, now: number): GameState {
   const first = !state.player.seenFirstEncounter
   const intro = first ? firstEncounterLines() : arrivalLinesFor(enemy)
@@ -309,12 +333,7 @@ function enterDeath(state: GameState, prose: string, thenQuit = false): GameStat
     combat: null,
     cutscene: null,
     pendingDeath: { depth: deathDepth, thenQuit },
-    player: {
-      ...freshPlayer(state.player.name),
-      // Preserve progress that survives death.
-      deepest: state.player.deepest,
-      seenFirstEncounter: state.player.seenFirstEncounter,
-    },
+    player: resetPlayer(state.player.name, state.player),
   }
 }
 
@@ -330,31 +349,38 @@ function appendEmit(state: GameState, emit: Emit[]): GameState {
 }
 
 export function freshState(name: string, inscriptions: Inscription[]): GameState {
+  // New character: the opening cutscene is queued and seenOpening is set
+  // up front. If the player quits mid-cutscene, the flag is already on
+  // their save so they don't get ambushed with the whole script again.
   return {
-    player: freshPlayer(name),
-    lines: [
-      { id: 0, style: "system", text: "you wake at depth 1." },
-      { id: 1, style: "system", text: "type /help for commands." },
-    ],
-    nextLineId: 2,
+    player: { ...freshPlayer(name), seenOpening: true },
+    lines: [],
+    nextLineId: 0,
     quitting: false,
     inscriptions,
     phase: "explore",
     encounter: null,
     lastEncounterRollAt: 0,
-    cutscene: null,
+    cutscene: {
+      remaining: openingCutsceneLines(),
+      nextAt: Date.now() + CUTSCENE_LINE_MS,
+      onDone: { kind: "none" },
+    },
     combat: null,
     pendingDeath: null,
   }
 }
 
 export function resumeState(player: PlayerState, inscriptions: Inscription[]): GameState {
-  // Migrate saves from before the items / encounter systems landed.
+  // Migrate saves from before the items / encounter / opening systems landed.
+  // seenOpening defaults true on resume — old saves already lived past the
+  // opening; we don't want to ambush returning players with the cutscene.
   const safe: PlayerState = {
     ...player,
     items: player.items ?? [],
     currentDepthItem: player.currentDepthItem ?? null,
     seenFirstEncounter: player.seenFirstEncounter ?? false,
+    seenOpening: player.seenOpening ?? true,
   }
   return {
     player: safe,
@@ -385,6 +411,19 @@ export function freshPlayer(name: string): PlayerState {
     items: [],
     currentDepthItem: null,
     seenFirstEncounter: false,
+    seenOpening: false,
+  }
+}
+
+// A fresh player at depth 1 that carries the progress death doesn't wipe:
+// deepest depth, the one-time cutscene flags. Used everywhere a death
+// resets the player so the flag set never drifts.
+export function resetPlayer(name: string, prev: PlayerState): PlayerState {
+  return {
+    ...freshPlayer(name),
+    deepest: prev.deepest,
+    seenFirstEncounter: prev.seenFirstEncounter,
+    seenOpening: prev.seenOpening,
   }
 }
 

@@ -17,7 +17,7 @@ import { LineView } from "./line-view.tsx"
 import { InputBar } from "./input-bar.tsx"
 import { PreCombatBar } from "./precombat.tsx"
 import { CombatScene } from "./combat-scene.tsx"
-import { freshPlayer, freshState, reducer, resumeState } from "../game/reducer.ts"
+import { freshState, reducer, resetPlayer, resumeState } from "../game/reducer.ts"
 import { runMark } from "../game/mark.ts"
 import { runDeath } from "../game/death.ts"
 import { loadSave, writeSave } from "../store/save.ts"
@@ -117,10 +117,22 @@ export function Game({ account }: GameProps) {
   }
 
   const { width, height } = useTerminalDimensions()
-  // Each line takes 2 rows now (text + a margin below). Chrome (hud,
-  // two rules, footer) eats 4 rows. Clip the buffer to what actually fits.
-  const visibleCount = Math.max(1, Math.floor((height - 4) / 2))
+  // Each line takes 2 rows (text + margin). Chrome eats 4 rows in the
+  // normal layout (hud + 2 rules + footer) and 0 during a cutscene
+  // (everything but the scroll is hidden for immersion).
+  const chromeRows = state.cutscene ? 0 : 4
+  const visibleCount = Math.max(1, Math.floor((height - chromeRows) / 2))
   const visible = state.lines.slice(-visibleCount)
+
+  // Cutscene takes over the whole screen: no HUD, no rules, no footer.
+  // Same intent as the combat scene, just stricter — even the HUD goes.
+  if (state.cutscene) {
+    return (
+      <box style={{ flexDirection: "column", width: "100%", height: "100%", paddingLeft: 1, paddingRight: 1 }}>
+        {visible.map((line) => <LineView key={line.id} line={line} />)}
+      </box>
+    )
+  }
 
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>
@@ -211,15 +223,15 @@ function recoverFromForceQuit(
   deathDepth: number,
   inscriptions: ReturnType<typeof loadInscriptions>,
 ): GameState {
-  const reset = {
-    ...freshPlayer(account.name),
-    deepest: saved.deepest,
-    seenFirstEncounter: saved.seenFirstEncounter ?? false,
-  }
-  const base = freshState(account.name, inscriptions)
+  // The saved player may predate seenOpening — default it to true so the
+  // recovery path doesn't surprise a returning player with the opening.
+  const safe = { ...saved, seenOpening: saved.seenOpening ?? true }
+  // Use resumeState as the base so we don't accidentally requeue the
+  // opening cutscene (freshState would).
+  const base = resumeState(safe, inscriptions)
   return {
     ...base,
-    player: reset,
+    player: resetPlayer(account.name, safe),
     pendingDeath: { depth: deathDepth, thenQuit: false },
     lines: [
       { id: 0, style: "story", text: "the dark took you." },

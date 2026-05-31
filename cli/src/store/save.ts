@@ -7,5 +7,5 @@
 import { readJson, writeJson } from "./json-file.ts"
 import type { PlayerState } from "../game/types.ts"
 
-export const loadSave = (): PlayerState | null => readJson<PlayerState>("save.json")
+export const loadSave  = (): PlayerState | null => readJson<PlayerState>("save.json")
 export const writeSave = (player: PlayerState): void => writeJson("save.json", player)

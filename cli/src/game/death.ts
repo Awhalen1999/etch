@@ -10,7 +10,7 @@ import type { Account } from "../store/account.ts"
 import type { Emit, GameAction, PlayerState } from "./types.ts"
 import { postInscription } from "../api/inscriptions.ts"
 import { writeInscriptions } from "../store/inscriptions.ts"
-import { freshPlayer } from "./reducer.ts"
+import { resetPlayer } from "./reducer.ts"
 
 export async function runDeath(
   account: Account,
@@ -32,12 +32,5 @@ export async function runDeath(
     dispatch({ kind: "emit", lines: [err] })
   }
 
-  // Reset the player but preserve deepest + seenFirstEncounter so
-  // band progression and the cutscene-once invariant survive death.
-  const reset: PlayerState = {
-    ...freshPlayer(account.name),
-    deepest: player.deepest,
-    seenFirstEncounter: player.seenFirstEncounter,
-  }
-  dispatch({ kind: "respawn", player: reset })
+  dispatch({ kind: "respawn", player: resetPlayer(account.name, player) })
 }
