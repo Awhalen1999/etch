@@ -26,11 +26,14 @@ export const ENCOUNTER_ROLL_INTERVAL_MS = 5_000
 export const ENCOUNTER_TIMEOUT_MS = 15_000
 export const ESCAPE_STAMINA_COST = 30
 
-// Cutscenes emit one line per second for atmosphere.
-export const CUTSCENE_LINE_MS = 1_000
+// Cutscenes emit one line every 2 seconds for atmosphere. A "..." line
+// counts as a beat — same timer, no extra logic.
+export const CUTSCENE_LINE_MS = 2_000
 
 // Per-band chance per 5s roll. Bands not listed are 0%.
 export function encounterChanceFor(depth: number): number {
+  // TEST OVERRIDE: 50% at depth 2 for combat testing. Remove when slice 2 lands.
+  if (depth === 2) return 0.5
   if (depth < 41) return 0
   if (depth <= 80) return 0.05
   if (depth <= 120) return 0.10

@@ -91,7 +91,10 @@ export function Game({ account }: GameProps) {
   }
 
   const { width, height } = useTerminalDimensions()
-  const visible = state.lines.slice(-Math.max(1, height - 4))
+  // Each line takes 2 rows now (text + a margin below). Chrome (hud,
+  // two rules, footer) eats 4 rows. Clip the buffer to what actually fits.
+  const visibleCount = Math.max(1, Math.floor((height - 4) / 2))
+  const visible = state.lines.slice(-visibleCount)
 
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>

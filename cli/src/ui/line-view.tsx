@@ -1,11 +1,12 @@
-// One row in the scroll. Color comes from the line's style.
+// One row in the scroll, with a blank row below it for breathing space.
+// Color comes from the line's style.
 
 import type { Line, LineStyle } from "../game/types.ts"
 import { theme } from "./theme.ts"
 
 export function LineView({ line }: { line: Line }) {
   const text = line.style === "echo" ? `> ${line.text}` : line.text
-  return <text fg={colorFor(line.style)}>{text}</text>
+  return <text fg={colorFor(line.style)} style={{ marginBottom: 1 }}>{text}</text>
 }
 
 function colorFor(style: LineStyle): string {

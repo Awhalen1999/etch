@@ -22,7 +22,6 @@ import { runCommand } from "./commands.ts"
 import {
   BASE_MAX_STAMINA,
   CUTSCENE_LINE_MS,
-  ENCOUNTER_MIN_DEPTH,
   ENCOUNTER_ROLL_INTERVAL_MS,
   ENCOUNTER_TIMEOUT_MS,
   ESCAPE_STAMINA_COST,
@@ -164,7 +163,9 @@ function advanceExplore(state: GameState, now: number): GameState {
   if (next.player.resting && next.player.stamina < next.player.maxStamina) {
     next = recoverStamina(next)
   }
-  if (next.player.resting && next.player.depth >= ENCOUNTER_MIN_DEPTH) {
+  // Roll every 5s while resting. encounterChanceFor owns the depth rules,
+  // so we don't gate on depth here.
+  if (next.player.resting) {
     if (now - next.lastEncounterRollAt >= ENCOUNTER_ROLL_INTERVAL_MS) {
       next = { ...next, lastEncounterRollAt: now }
       const enc = rollEncounter(next.player.depth, now)

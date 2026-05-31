@@ -2,6 +2,10 @@
 //
 // The ant is the only authored enemy for now (design.md). HP and combat
 // resolution land in the next slice; this file just owns the spawn side.
+//
+// Internal kind id is "ant" (design canon — they're giant ants), but
+// player-facing text just calls them "enemy". Don't expose the kind in
+// prose.
 
 import type { EnemyKind, Emit, EncounterState } from "./types.ts"
 import { encounterChanceFor } from "./world.ts"
@@ -12,7 +16,7 @@ export interface EnemyDef {
 }
 
 export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
-  ant: { kind: "ant", name: "ant" },
+  ant: { kind: "ant", name: "enemy" },
 }
 
 // Returns an encounter if the roll fires, otherwise null.
@@ -26,23 +30,33 @@ export function rollEncounter(depth: number, now: number): EncounterState | null
 // ---- Prose ----
 
 // First-time ant encounter cutscene (story.md). Emitted once per save.
-// Each line lands 1s after the previous via the cutscene queue.
+// Each line — including "..." pauses — lands one cutscene beat after
+// the previous via the queue.
 export function firstEncounterLines(): Emit[] {
   const story = (text: string): Emit => ({ style: "story", text })
+  const pause = story("...")
   return [
     story("something moves in the dark below you."),
+    pause,
     story("you hear it before you see it."),
     story("legs. too many legs. clicking against stone."),
+    pause,
     story("it pulls itself up onto the beam in front of you."),
+    pause,
     story("it's the size of a man."),
+    pause,
     story("its head is wrong. smooth and ridged like cracked bone."),
     story("two black eyes catch your headlamp and don't reflect it back."),
     story("they just swallow the light."),
+    pause,
     story("its mandibles open sideways."),
     story("they're serrated. wet. there's something dark caught between them."),
+    pause,
     story("it smells like copper and rot."),
+    pause,
     story("it doesn't charge. it just watches you."),
     story("its antennae twitch once. twice."),
+    pause,
     story("it knows you're here."),
   ]
 }
@@ -50,7 +64,7 @@ export function firstEncounterLines(): Emit[] {
 // Subsequent encounters: short arrival prose. Picked at random.
 const ANT_ARRIVAL_TEMPLATES: string[] = [
   "clicking, close. it pulls itself onto the beam.",
-  "legs scrape the stone. an ant rises into the light.",
+  "legs scrape the stone. it rises into the light.",
   "the dark shifts. mandibles, then eyes that don't reflect.",
 ]
 
