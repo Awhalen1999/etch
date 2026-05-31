@@ -45,7 +45,7 @@ export function PreCombatBar({ startedAt, onEngage, onEscape }: PreCombatBarProp
   const fill = ratio < 0.25 ? theme.danger : ratio < 0.5 ? theme.accent : theme.fg
 
   return (
-    <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1 }}>
+    <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1, flexShrink: 0 }}>
       <text>
         <span fg={theme.accent}>F</span>
         <span fg={theme.dim}> fight  </span>

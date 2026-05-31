@@ -23,7 +23,7 @@ export function InputBar({ onSubmit }: InputBarProps) {
   }
 
   return (
-    <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1 }}>
+    <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1, flexShrink: 0 }}>
       <text fg={theme.dim}>{"> "}</text>
       <input
         key={resetKey}

@@ -17,7 +17,7 @@ interface HudProps {
 
 export function Hud({ name, depth, stamina, maxStamina, deepest }: HudProps) {
   return (
-    <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1 }}>
+    <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1, flexShrink: 0 }}>
       <text>
         <span fg={theme.accent}>{name}</span>
         <Sep />

@@ -10,8 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "dev": "bun run --watch src/index.tsx",
-    "start": "bun run src/index.tsx",
+    "dev": "bun run src/index.tsx",
     "build": "bun build --compile --minify --target=bun src/index.tsx --outfile=dist/etch",
     "typecheck": "tsc --noEmit"
   },

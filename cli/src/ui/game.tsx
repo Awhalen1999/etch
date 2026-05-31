@@ -117,11 +117,13 @@ export function Game({ account }: GameProps) {
   }
 
   const { width, height } = useTerminalDimensions()
-  // Each line takes 2 rows (text + margin). Chrome eats 4 rows in the
-  // normal layout (hud + 2 rules + footer) and 0 during a cutscene
-  // (everything but the scroll is hidden for immersion).
+  // Chrome eats 4 rows in the normal layout (hud + 2 rules + footer)
+  // and 0 during a cutscene. Each line takes at most 2 rows (story/
+  // ambient have a margin row; system/echo/error are tight). Use the
+  // worst case for the slice so the scroll never overflows its box.
   const chromeRows = state.cutscene ? 0 : 4
-  const visibleCount = Math.max(1, Math.floor((height - chromeRows) / 2))
+  const bodyRows = Math.max(1, height - chromeRows)
+  const visibleCount = Math.max(1, Math.floor(bodyRows / 2))
   const visible = state.lines.slice(-visibleCount)
 
   // Cutscene takes over the whole screen: no HUD, no rules, no footer.
@@ -163,8 +165,8 @@ export function Game({ account }: GameProps) {
       )
     }
     return (
-      <box style={{ flexDirection: "column", flexGrow: 1, width: "100%" }}>
-        <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
+      <box style={{ flexDirection: "column", flexGrow: 1, width: "100%", overflow: "hidden" }}>
+        <box style={{ flexGrow: 1, flexShrink: 1, flexDirection: "column", paddingLeft: 1, paddingRight: 1, overflow: "hidden" }}>
           {visible.map((line) => <LineView key={line.id} line={line} />)}
         </box>
         <Rule width={width} />
@@ -193,7 +195,7 @@ export function Game({ account }: GameProps) {
 }
 
 function Rule({ width }: { width: number }) {
-  return <text fg={theme.rule}>{"─".repeat(Math.max(0, width))}</text>
+  return <text fg={theme.rule} style={{ flexShrink: 0 }}>{"─".repeat(Math.max(0, width))}</text>
 }
 
 // Initial reducer state. Three paths, in priority order:
