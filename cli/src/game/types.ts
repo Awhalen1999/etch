@@ -1,6 +1,17 @@
 // Game state shapes shared across reducer, commands, and UI.
 
-export type LineStyle = "system" | "story" | "echo" | "ambient" | "error"
+// Visual style for a line in the scroll or a cutscene.
+//   - system:  mechanical info (depth changes, system hints)
+//   - story:   world prose / narration
+//   - echo:    command echoes the player typed
+//   - ambient: passive atmospheric lines
+//   - error:   refusals + failures
+//   - dialog:  another character's spoken lines (e.g. Horris)
+//   - thought: the player's own inner monologue
+//   - pause:   a "..." beat in a cutscene
+export type LineStyle =
+  | "system" | "story" | "echo" | "ambient" | "error"
+  | "dialog" | "thought" | "pause"
 
 export interface Line {
   id: number
@@ -78,11 +89,19 @@ export interface CombatState {
   lastResult: { text: string; severity: ResultSeverity } | null
 }
 
-// A queue of lines emitted one-per-second. While a cutscene is in flight,
-// the player can't act and nothing else advances. When the queue empties,
-// the `onDone` transition fires.
+// A queue of lines emitted one cutscene-beat at a time. While a cutscene
+// is in flight nothing else advances and the player can't act. Lines
+// move from `remaining` to `shown` as they appear; CutsceneLayout renders
+// `shown` and nothing else. When `remaining` empties, `onDone` fires.
+//
+// Lines that must persist into the main scroll after the cutscene ends
+// (the help hint after the opening, the "an enemy blocks..." line after
+// an encounter intro) are emitted into state.lines at cutscene *start*,
+// not at the end. They sit there, invisible during the full-screen
+// cutscene, and reappear naturally when the main layout returns.
 export interface Cutscene {
   remaining: Emit[]
+  shown: Emit[]
   /** Epoch ms when the next line is due. */
   nextAt: number
   onDone: CutsceneDone

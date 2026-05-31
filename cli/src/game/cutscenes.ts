@@ -1,28 +1,31 @@
 // Authored cutscene prose for the opening and the band first-visits.
 //
 // Each function returns an Emit[] that the cutscene queue plays one
-// line per CUTSCENE_LINE_MS. A literal "..." entry counts as a pause —
-// no special markup or pause logic, just another line of text.
+// line per CUTSCENE_LINE_MS. Lines come in four flavors of voice:
+//   - story:   world narration (third person observation)
+//   - dialog:  another character's words (Horris)
+//   - thought: the player's own inner monologue
+//   - pause:   a literal "..." beat between sections
 //
 // Prose tracks docs/story.md but compresses repeated beats so each
-// cutscene reads tight. Tone guidelines (lowercase, observational, no
-// exclamation marks, never name the horror) live in docs/story.md.
+// cutscene reads tight. Tone guidelines (lowercase, observational,
+// no exclamation marks, never name the horror) live in docs/story.md.
 
 import type { Band } from "./world.ts"
 import type { Emit } from "./types.ts"
 
 // ---- Helpers (file-local) ----
 
-const story = (text: string): Emit => ({ style: "story", text })
-const sys = (text: string): Emit => ({ style: "system", text })
-const pause: Emit = { style: "story", text: "..." }
-// Horris's spoken lines, set in quotes so they read as dialog.
-const speech = (text: string): Emit => ({ style: "story", text: `"${text}"` })
+const story   = (text: string): Emit => ({ style: "story", text })
+const dialog  = (text: string): Emit => ({ style: "dialog", text: `"${text}"` })
+const thought = (text: string): Emit => ({ style: "thought", text })
+const pause:   Emit = { style: "pause", text: "..." }
 
 // ---- Opening cutscene ----
 //
-// Plays once on first-ever launch. Ends with a system line that points
-// at /help so brand-new players know where to start.
+// Plays once on first-ever launch. The new-player "type /help for
+// commands." hint is emitted into the main scroll at cutscene start —
+// not as part of this script — so it survives into the main layout.
 export function openingCutsceneLines(): Emit[] {
   return [
     story("the surface is dying."),
@@ -51,10 +54,10 @@ export function openingCutsceneLines(): Emit[] {
     pause,
     story("you wake. someone is sitting near you, in the shade."),
     pause,
-    speech("you came down too."),
+    dialog("you came down too."),
     story("he sounds almost pleased."),
     pause,
-    speech("they all come down eventually."),
+    dialog("they all come down eventually."),
     pause,
     story("he's been here a while. you can tell by the dust settled around him."),
     pause,
@@ -65,12 +68,12 @@ export function openingCutsceneLines(): Emit[] {
     pause,
     story("almost like it was designed that way."),
     pause,
-    speech("that's quite a fall you took."),
+    dialog("that's quite a fall you took."),
     pause,
-    speech("the good news is it's not far between levels down here."),
-    speech("you can use the old beams to climb if you need to."),
+    dialog("the good news is it's not far between levels down here."),
+    dialog("you can use the old beams to climb if you need to."),
     pause,
-    speech("the only way out is down."),
+    dialog("the only way out is down."),
     story("he points down the shaft. it goes farther than your light reaches."),
     pause,
     story("he grins. it doesn't reach his eyes."),
@@ -78,27 +81,25 @@ export function openingCutsceneLines(): Emit[] {
     story("he pulls something from a bag beside him. tosses it to you."),
     story("an old miner's headlamp."),
     pause,
-    speech("it gets dark down there."),
+    dialog("it gets dark down there."),
     pause,
-    speech("i've watched a lot of people go down."),
-    speech("not many come back."),
+    dialog("i've watched a lot of people go down."),
+    dialog("not many come back."),
     pause,
     story("he settles back against the wall."),
     story("he looks comfortable. he looks like he could sit here forever."),
     pause,
-    speech("me. i'm happy here. i like the quiet."),
+    dialog("me. i'm happy here. i like the quiet."),
     pause,
     story("something in him is wrong but you can't say what."),
     pause,
-    speech("go on, then. or stay. some of us stay."),
+    dialog("go on, then. or stay. some of us stay."),
     pause,
     story("you think one thing, clearly:"),
     pause,
-    story("i am not dying here."),
+    thought("i am not dying here."),
     pause,
-    story("the only way is down."),
-    pause,
-    sys("type /help for commands."),
+    thought("the only way is down."),
   ]
 }
 

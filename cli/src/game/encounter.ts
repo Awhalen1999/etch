@@ -1,14 +1,17 @@
 // Encounter data + roll logic.
 //
-// The ant is the only authored enemy for now (design.md). HP and combat
-// resolution land in the next slice; this file just owns the spawn side.
+// The ant is the only authored enemy for now (design canon). Internal
+// kind id is "ant" — they're giant ants — but player-facing text always
+// says "enemy". Don't expose the kind in prose.
 //
-// Internal kind id is "ant" (design canon — they're giant ants), but
-// player-facing text just calls them "enemy". Don't expose the kind in
-// prose.
+// This file owns the spawn side: roll on rest, return an encounter or
+// null. The cutscene prose lives here too because it's part of how
+// encounters surface; combat math itself lives in combat.ts.
 
 import type { EnemyKind, Emit, EncounterState } from "./types.ts"
 import { encounterChanceFor } from "./world.ts"
+
+// ---- Enemy registry ----
 
 export interface EnemyDef {
   kind: EnemyKind
@@ -19,7 +22,8 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
   ant: { kind: "ant", name: "enemy" },
 }
 
-// Returns an encounter if the roll fires, otherwise null.
+// ---- Roll ----
+
 export function rollEncounter(depth: number, now: number): EncounterState | null {
   const chance = encounterChanceFor(depth)
   if (chance <= 0) return null
@@ -28,13 +32,16 @@ export function rollEncounter(depth: number, now: number): EncounterState | null
 }
 
 // ---- Prose ----
+//
+// Both line builders return ONLY the atmospheric/story portion. The
+// "an enemy blocks your path." UI hint is emitted into the main scroll
+// at encounter start, not as part of the cutscene script.
 
-// First-time ant encounter cutscene (story.md). Emitted once per save.
-// Each line — including "..." pauses — lands one cutscene beat after
-// the previous via the queue.
+const story = (text: string): Emit => ({ style: "story", text })
+const pause: Emit = { style: "pause", text: "..." }
+
+// First-time ant encounter. Plays once per save.
 export function firstEncounterLines(): Emit[] {
-  const story = (text: string): Emit => ({ style: "story", text })
-  const pause = story("...")
   return [
     story("something moves in the dark below you."),
     pause,
@@ -61,24 +68,16 @@ export function firstEncounterLines(): Emit[] {
   ]
 }
 
-// Subsequent encounters: short arrival prose. Picked at random.
-const ANT_ARRIVAL_TEMPLATES: string[] = [
+// Subsequent encounters: a single atmospheric line picked at random.
+const ARRIVAL_TEMPLATES: string[] = [
   "clicking, close. it pulls itself onto the beam.",
   "legs scrape the stone. it rises into the light.",
   "the dark shifts. mandibles, then eyes that don't reflect.",
 ]
 
 export function arrivalLinesFor(_kind: EnemyKind): Emit[] {
-  const template = ANT_ARRIVAL_TEMPLATES[
-    Math.floor(Math.random() * ANT_ARRIVAL_TEMPLATES.length)
+  const template = ARRIVAL_TEMPLATES[
+    Math.floor(Math.random() * ARRIVAL_TEMPLATES.length)
   ]!
-  return [
-    { style: "story", text: template },
-    { style: "system", text: "an enemy blocks your path." },
-  ]
-}
-
-// Prompt line printed at the end of every encounter intro.
-export function promptLine(): Emit {
-  return { style: "system", text: "press F to fight. E to escape." }
+  return [story(template)]
 }

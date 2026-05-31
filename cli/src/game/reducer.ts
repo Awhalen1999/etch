@@ -36,7 +36,7 @@ import {
   enemyHpFor,
   escapeDepthFrom,
 } from "./world.ts"
-import { arrivalLinesFor, firstEncounterLines, promptLine, rollEncounter } from "./encounter.ts"
+import { arrivalLinesFor, firstEncounterLines, rollEncounter } from "./encounter.ts"
 import { barPosition, inSweetSpot, nextRound, resolveTiming } from "./combat.ts"
 import { bandCrossing, bandFirstVisitLines, openingCutsceneLines } from "./cutscenes.ts"
 import { attackPowerFor, defensePowerFor } from "./items.ts"
@@ -141,19 +141,29 @@ function advanceTick(state: GameState, now: number): GameState {
   return advanceExplore(state, now)
 }
 
+// Lines drain from cutscene.remaining into cutscene.shown — the layout
+// reads `shown` and only `shown`. The main scroll (state.lines) is never
+// touched by the cutscene.
+//
+// The cutscene ends one beat after the final line is pushed to shown:
+//   - Tick A: pop last line into shown, set nextAt = now + CUTSCENE_LINE_MS
+//   - Tick B (>= nextAt): remaining is empty, fire onDone
+// This gives the player time to read the final line instead of having
+// it disappear the instant it's pushed.
 function advanceCutscene(state: GameState, cutscene: Cutscene, now: number): GameState {
   if (now < cutscene.nextAt) return state
 
   const [next, ...rest] = cutscene.remaining
   if (!next) return applyCutsceneDone(state, cutscene.onDone, now)
 
-  const emitted = appendEmit(state, [next])
-  if (rest.length === 0) {
-    return applyCutsceneDone({ ...emitted, cutscene: null }, cutscene.onDone, now)
-  }
   return {
-    ...emitted,
-    cutscene: { remaining: rest, nextAt: now + CUTSCENE_LINE_MS, onDone: cutscene.onDone },
+    ...state,
+    cutscene: {
+      remaining: rest,
+      shown: [...cutscene.shown, next],
+      nextAt: now + CUTSCENE_LINE_MS,
+      onDone: cutscene.onDone,
+    },
   }
 }
 
@@ -292,6 +302,7 @@ function queueBandFirstVisit(
     ...state,
     cutscene: {
       remaining: lines,
+      shown: [],
       nextAt: now + CUTSCENE_LINE_MS,
       onDone: { kind: "none" },
     },
@@ -301,11 +312,15 @@ function queueBandFirstVisit(
 function enterEncounter(state: GameState, enemy: EnemyKind, now: number): GameState {
   const first = !state.player.seenFirstEncounter
   const intro = first ? firstEncounterLines() : arrivalLinesFor(enemy)
-  const script: Emit[] = [...intro, promptLine()]
+  // Trail a single mechanical line into the main scroll so the player
+  // sees "an enemy blocks your path." sitting above the PreCombatBar
+  // once the cutscene drains.
+  const trailing: Emit = { style: "system", text: "an enemy blocks your path." }
   return {
-    ...state,
+    ...appendEmit(state, [trailing]),
     cutscene: {
-      remaining: script,
+      remaining: intro,
+      shown: [],
       nextAt: now + CUTSCENE_LINE_MS,
       onDone: { kind: "encounter", enemy },
     },
@@ -352,10 +367,14 @@ export function freshState(name: string, inscriptions: Inscription[]): GameState
   // New character: the opening cutscene is queued and seenOpening is set
   // up front. If the player quits mid-cutscene, the flag is already on
   // their save so they don't get ambushed with the whole script again.
+  //
+  // The help hint sits in the main scroll from the start. It's invisible
+  // during the full-screen cutscene and naturally appears once the main
+  // layout returns.
   return {
     player: { ...freshPlayer(name), seenOpening: true },
-    lines: [],
-    nextLineId: 0,
+    lines: [{ id: 0, style: "system", text: "type /help for commands." }],
+    nextLineId: 1,
     quitting: false,
     inscriptions,
     phase: "explore",
@@ -363,6 +382,7 @@ export function freshState(name: string, inscriptions: Inscription[]): GameState
     lastEncounterRollAt: 0,
     cutscene: {
       remaining: openingCutsceneLines(),
+      shown: [],
       nextAt: Date.now() + CUTSCENE_LINE_MS,
       onDone: { kind: "none" },
     },
