@@ -16,6 +16,7 @@ import { Hud } from "./hud.tsx"
 import { LineView } from "./line-view.tsx"
 import { InputBar } from "./input-bar.tsx"
 import { PreCombatBar } from "./precombat.tsx"
+import { CombatScene } from "./combat-scene.tsx"
 import { freshState, reducer, resumeState } from "../game/reducer.ts"
 import { runMark } from "../game/mark.ts"
 import { runDeath } from "../game/death.ts"
@@ -106,13 +107,34 @@ export function Game({ account }: GameProps) {
         deepest={state.player.deepest}
       />
       <Rule width={width} />
-      <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
-        {visible.map((line) => <LineView key={line.id} line={line} />)}
-      </box>
-      <Rule width={width} />
-      {renderFooter()}
+      {renderBody()}
     </box>
   )
+
+  // Body swaps between two layouts:
+  //   - in combat -> CombatScene takes over (HUD stays above it)
+  //   - otherwise -> the scroll buffer + bottom rule + footer
+  function renderBody() {
+    if (state.phase === "in_combat" && state.combat) {
+      return (
+        <CombatScene
+          combat={state.combat}
+          onStrike={() => dispatch({ kind: "strike", now: Date.now() })}
+          onBrace={() => dispatch({ kind: "brace", now: Date.now() })}
+          onEscape={() => dispatch({ kind: "escape", now: Date.now() })}
+        />
+      )
+    }
+    return (
+      <box style={{ flexDirection: "column", flexGrow: 1, width: "100%" }}>
+        <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
+          {visible.map((line) => <LineView key={line.id} line={line} />)}
+        </box>
+        <Rule width={width} />
+        {renderFooter()}
+      </box>
+    )
+  }
 
   // The bottom row depends on what the player can do right now:
   //   - cutscene playing  -> nothing (the script reveals at its own pace)

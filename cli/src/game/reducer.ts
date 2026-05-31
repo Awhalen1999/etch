@@ -9,9 +9,11 @@
 //   - respawn: UI calls this after the death-marker inscription is posted.
 
 import type {
+  CombatState,
   Cutscene,
   CutsceneDone,
   Emit,
+  EnemyKind,
   GameAction,
   GameState,
   Inscription,
@@ -27,9 +29,15 @@ import {
   ESCAPE_STAMINA_COST,
   MIN_DEPTH,
   REST_RECOVERY_PER_SECOND,
+  ROUND_CYCLE_MS,
+  SWEET_SPOT_HIGH,
+  SWEET_SPOT_LOW,
+  enemyHpFor,
   escapeDepthFrom,
 } from "./world.ts"
 import { arrivalLinesFor, firstEncounterLines, promptLine, rollEncounter } from "./encounter.ts"
+import { nextRound, resolveTiming } from "./combat.ts"
+import { attackPowerFor, defensePowerFor } from "./items.ts"
 
 const MAX_LINES = 500
 
@@ -61,21 +69,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "engage": {
       if (state.cutscene) return state
       if (state.phase !== "pre_combat" || !state.encounter) return state
-      // Slice 1 stub: combat lands in the next slice. For now F resolves
-      // the encounter as a placeholder kill so the loop is testable.
-      const lines: Emit[] = [
-        { style: "story", text: "you raise your weapon." },
-        { style: "system", text: "the encounter ends. (combat: not yet wired)" },
-      ]
-      return {
-        ...appendEmit(state, lines),
-        phase: "explore",
-        encounter: null,
-      }
+      return enterCombat(state, state.encounter.enemy, action.now)
     }
     case "escape": {
       if (state.cutscene) return state
-      if (state.phase !== "pre_combat" || !state.encounter) return state
+      const canEscape = state.phase === "pre_combat" || state.phase === "in_combat"
+      if (!canEscape) return state
       if (state.player.stamina < ESCAPE_STAMINA_COST) {
         return appendEmit(state, [
           { style: "error", text: "you don't have the strength to flee." },
@@ -90,6 +89,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...appendEmit(state, lines),
         phase: "explore",
         encounter: null,
+        combat: null,
         player: {
           ...state.player,
           stamina: state.player.stamina - ESCAPE_STAMINA_COST,
@@ -99,6 +99,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
           currentDepthItem: null,
         },
       }
+    }
+    case "strike":
+    case "brace": {
+      if (state.phase !== "in_combat" || !state.combat) return state
+      const key = action.kind === "strike" ? "S" : "B"
+      return resolveCombatPress(state, state.combat, key, action.now)
     }
     case "respawn": {
       return {
@@ -190,6 +196,81 @@ function recoverStamina(state: GameState): GameState {
 
 // ---- Transitions ----
 
+function enterCombat(state: GameState, enemy: EnemyKind, now: number): GameState {
+  const maxHp = enemyHpFor(state.player.depth)
+  return {
+    ...state,
+    phase: "in_combat",
+    encounter: null,
+    combat: {
+      enemy,
+      enemyMaxHp: maxHp,
+      enemyHp: maxHp,
+      round: nextRound(state.player.depth, now),
+      lastResult: null,
+    },
+  }
+}
+
+// One S/B press resolves the current round: compute bar position, run
+// the timing/intent math, then end combat (win/death) or start the next
+// round. No side effects — pure state transformation.
+function resolveCombatPress(
+  state: GameState,
+  combat: CombatState,
+  key: "S" | "B",
+  now: number,
+): GameState {
+  const round = combat.round
+  const elapsed = (now - round.startedAt) % ROUND_CYCLE_MS
+  const frac = elapsed / ROUND_CYCLE_MS
+  // Triangular wave 0 -> 1 -> 0 across the cycle.
+  const pos = 1 - Math.abs(2 * frac - 1)
+  const inSweetSpot = pos >= SWEET_SPOT_LOW && pos <= SWEET_SPOT_HIGH
+
+  const outcome = resolveTiming(
+    key,
+    round.intent,
+    inSweetSpot,
+    attackPowerFor(state.player.items),
+    defensePowerFor(state.player.items),
+  )
+
+  const newHp = combat.enemyHp - outcome.damage
+  const newStamina = Math.max(0, state.player.stamina - outcome.staminaCost)
+  const playerAfter = { ...state.player, stamina: newStamina }
+
+  if (newStamina <= 0) {
+    return enterDeath({ ...state, player: playerAfter }, "your strength gives out. it takes you.")
+  }
+
+  if (newHp <= 0) {
+    const lines: Emit[] = [
+      { style: "story", text: outcome.message },
+      { style: "story", text: "it shudders. it stops." },
+      { style: "system", text: "the way is clear." },
+    ]
+    return {
+      ...appendEmit(state, lines),
+      phase: "explore",
+      encounter: null,
+      combat: null,
+      player: playerAfter,
+    }
+  }
+
+  return {
+    ...state,
+    combat: {
+      ...combat,
+      enemyHp: newHp,
+      lastResult: outcome.message,
+      round: nextRound(state.player.depth, now),
+    },
+    player: playerAfter,
+  }
+}
+
 function enterEncounter(state: GameState, now: number): GameState {
   const first = !state.player.seenFirstEncounter
   const intro = first ? firstEncounterLines() : arrivalLinesFor("ant")
@@ -219,6 +300,7 @@ function enterDeath(state: GameState, prose: string): GameState {
     ...appendEmit(state, lines),
     phase: "explore",
     encounter: null,
+    combat: null,
     cutscene: null,
     pendingDeath: { depth: deathDepth },
     player: {
@@ -255,6 +337,7 @@ export function freshState(name: string, inscriptions: Inscription[]): GameState
     encounter: null,
     lastEncounterRollAt: 0,
     cutscene: null,
+    combat: null,
     pendingDeath: null,
   }
 }
@@ -279,6 +362,7 @@ export function resumeState(player: PlayerState, inscriptions: Inscription[]): G
     encounter: null,
     lastEncounterRollAt: 0,
     cutscene: null,
+    combat: null,
     pendingDeath: null,
   }
 }

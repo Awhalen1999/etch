@@ -43,12 +43,33 @@ export interface PlayerState {
 
 export type EnemyKind = "ant"
 
-export type Phase = "explore" | "pre_combat"
+export type Phase = "explore" | "pre_combat" | "in_combat"
 
 export interface EncounterState {
   enemy: EnemyKind
   /** Epoch ms when the encounter began. Used to compute the 15s timeout. */
   startedAt: number
+}
+
+export type EnemyIntent = "attack" | "open"
+
+// One round of combat. The intent is committed at round start; the
+// telegraph is the prose the player reads. If the telegraph came from
+// the ambiguous pool, the player can't infer intent.
+export interface CombatRound {
+  intent: EnemyIntent
+  telegraph: string
+  /** Epoch ms when the round began. Drives the bouncing timing bar. */
+  startedAt: number
+}
+
+export interface CombatState {
+  enemy: EnemyKind
+  enemyMaxHp: number
+  enemyHp: number
+  round: CombatRound
+  /** Dim line under the current telegraph: result of the previous press. */
+  lastResult: string | null
 }
 
 // A queue of lines emitted one-per-second. While a cutscene is in flight,
@@ -91,6 +112,8 @@ export interface GameState {
   lastEncounterRollAt: number
   /** Active cutscene, or null when no script is playing. */
   cutscene: Cutscene | null
+  /** Active combat state when phase === "in_combat", otherwise null. */
+  combat: CombatState | null
   /**
    * Set when the player dies. UI watches this, carves the death-marker
    * inscription via the API, then dispatches `respawn` to clear it.
@@ -105,4 +128,6 @@ export type GameAction =
   | { kind: "setInscriptions"; list: Inscription[] }
   | { kind: "engage"; now: number }
   | { kind: "escape"; now: number }
+  | { kind: "strike"; now: number }
+  | { kind: "brace"; now: number }
   | { kind: "respawn"; player: PlayerState }

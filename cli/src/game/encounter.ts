@@ -68,14 +68,13 @@ const ANT_ARRIVAL_TEMPLATES: string[] = [
   "the dark shifts. mandibles, then eyes that don't reflect.",
 ]
 
-export function arrivalLinesFor(kind: EnemyKind): Emit[] {
-  const def = ENEMY_DEFS[kind]
+export function arrivalLinesFor(_kind: EnemyKind): Emit[] {
   const template = ANT_ARRIVAL_TEMPLATES[
     Math.floor(Math.random() * ANT_ARRIVAL_TEMPLATES.length)
   ]!
   return [
     { style: "story", text: template },
-    { style: "system", text: `a ${def.name} blocks your path.` },
+    { style: "system", text: "an enemy blocks your path." },
   ]
 }
 
