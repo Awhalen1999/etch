@@ -67,6 +67,9 @@ export function runCommand(ctx: CommandContext, raw: string, now: number): Comma
 // ---- Commands ----
 
 function moveDown(player: PlayerState, now: number, echo: Emit): CommandResult {
+  if (player.queenKilled) {
+    return { player, emit: [echo, err("leave this place.")] }
+  }
   if (player.depth >= MAX_DEPTH) {
     return { player, emit: [echo, err("you are at the bottom.")] }
   }
@@ -89,6 +92,9 @@ function moveDown(player: PlayerState, now: number, echo: Emit): CommandResult {
 }
 
 function moveUp(player: PlayerState, now: number, echo: Emit): CommandResult {
+  if (player.queenKilled) {
+    return { player, emit: [echo, err("leave this place.")] }
+  }
   if (player.depth <= MIN_DEPTH) {
     return { player, emit: [echo, err("the lip overhangs. no climbing back.")] }
   }

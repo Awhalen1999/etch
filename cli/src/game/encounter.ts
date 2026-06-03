@@ -20,6 +20,7 @@ export interface EnemyDef {
 
 export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
   ant: { kind: "ant", name: "enemy" },
+  queen: { kind: "queen", name: "the queen" },
 }
 
 // ---- Roll ----

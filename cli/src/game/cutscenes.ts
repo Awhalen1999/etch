@@ -137,6 +137,7 @@ export function bandFirstVisitLines(band: Band): Emit[] | null {
         story("your words don't echo. your own breath sounds far away."),
         story("this is not a place where things rest."),
       ]
+    case "the surface":
     case "the dust":
     case "the queen":
       return null

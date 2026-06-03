@@ -46,6 +46,12 @@ import {
   returnLine,
   returnedToDepthOne,
 } from "./horris.ts"
+import {
+  arrivedAtQueen,
+  queenApproachLines,
+  queenReturnLines,
+  queenVictoryLines,
+} from "./queen.ts"
 import { attackPowerFor, defensePowerFor } from "./items.ts"
 
 const MAX_LINES = 500
@@ -69,8 +75,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (returnedToDepthOne(state.player.depth, result.player.depth)) {
         next = { ...appendEmit(next, [returnLine()]), lastHorrisAt: action.now }
       }
-      // If this command pushed deepest_depth into a new band, queue the
-      // band's one-time first-visit cutscene right after the echo lands.
+      // Queen's chamber gets its own approach cutscene; band first-visits
+      // handle the rest. Both helpers no-op if a cutscene is already queued.
+      next = queueQueenApproach(next, state.player.depth, result.player.depth, action.now)
       return queueBandFirstVisit(next, state.player.deepest, result.player.deepest, action.now)
     }
     case "emit": {
@@ -187,6 +194,21 @@ function applyCutsceneDone(state: GameState, done: CutsceneDone, now: number): G
         phase: "pre_combat",
         encounter: { enemy: done.enemy, startedAt: now },
       }
+    case "queenVictory":
+      // The victory cutscene narrates the climb out. When it ends, the
+      // player is on the surface and the world is finished with them.
+      return {
+        ...state,
+        cutscene: null,
+        lastHorrisAt: now,
+        player: {
+          ...state.player,
+          depth: 0,
+          queenKilled: true,
+          resting: false,
+          currentDepthItem: null,
+        },
+      }
   }
 }
 
@@ -234,7 +256,7 @@ function recoverStamina(state: GameState): GameState {
 // ---- Transitions ----
 
 function enterCombat(state: GameState, enemy: EnemyKind, now: number): GameState {
-  const maxHp = enemyHpFor(state.player.depth)
+  const maxHp = enemyHpFor(enemy, state.player.depth)
   return {
     ...state,
     phase: "in_combat",
@@ -243,7 +265,7 @@ function enterCombat(state: GameState, enemy: EnemyKind, now: number): GameState
       enemy,
       enemyMaxHp: maxHp,
       enemyHp: maxHp,
-      round: nextRound(state.player.depth, now),
+      round: nextRound(enemy, state.player.depth, now),
       lastResult: null,
     },
   }
@@ -276,6 +298,9 @@ function resolveCombatPress(
   }
 
   if (newHp <= 0) {
+    if (combat.enemy === "queen") {
+      return enterQueenVictory({ ...state, player: playerAfter }, outcome.message, now)
+    }
     const lines: Emit[] = [
       { style: "story", text: outcome.message },
       { style: "story", text: "it shudders. it stops." },
@@ -296,9 +321,26 @@ function resolveCombatPress(
       ...combat,
       enemyHp: newHp,
       lastResult: { text: outcome.message, severity: outcome.severity },
-      round: nextRound(state.player.depth, now),
+      round: nextRound(combat.enemy, state.player.depth, now),
     },
     player: playerAfter,
+  }
+}
+
+// The queen's death triggers one long cutscene that covers everything
+// from her fall through the climb out to the surface. The done-handler
+// in applyCutsceneDone lands the player at depth 0 with queenKilled set.
+function enterQueenVictory(state: GameState, finalMessage: string, now: number): GameState {
+  return {
+    ...appendEmit(state, [{ style: "story", text: finalMessage }]),
+    phase: "explore",
+    encounter: null,
+    combat: null,
+    cutscene: {
+      remaining: queenVictoryLines(),
+      nextAt: now + CUTSCENE_LINE_MS,
+      onDone: { kind: "queenVictory" },
+    },
   }
 }
 
@@ -308,6 +350,7 @@ function queueBandFirstVisit(
   newDeepest: number,
   now: number,
 ): GameState {
+  if (state.cutscene) return state
   const band = bandCrossing(oldDeepest, newDeepest)
   if (!band) return state
   const lines = bandFirstVisitLines(band)
@@ -318,6 +361,37 @@ function queueBandFirstVisit(
       remaining: lines,
       nextAt: now + CUTSCENE_LINE_MS,
       onDone: { kind: "none" },
+    },
+  }
+}
+
+// The queen's chamber. First arrival plays the long approach cutscene;
+// subsequent arrivals (after escape) play one short atmospheric line.
+// Either way the cutscene transitions to pre-combat when it finishes.
+function queueQueenApproach(
+  state: GameState,
+  oldDepth: number,
+  newDepth: number,
+  now: number,
+): GameState {
+  if (state.cutscene) return state
+  if (state.player.queenKilled) return state
+  if (!arrivedAtQueen(oldDepth, newDepth)) return state
+
+  const first = !state.player.seenQueenApproach
+  const intro = first ? queenApproachLines() : queenReturnLines()
+  const script: Emit[] = [...intro, { style: "system", text: "she blocks your path." }]
+  return {
+    ...state,
+    cutscene: {
+      remaining: script,
+      nextAt: now + CUTSCENE_LINE_MS,
+      onDone: { kind: "encounter", enemy: "queen" },
+    },
+    player: {
+      ...state.player,
+      seenQueenApproach: true,
+      resting: false,
     },
   }
 }
@@ -413,6 +487,8 @@ export function resumeState(player: PlayerState, inscriptions: Inscription[]): G
     currentDepthItem: player.currentDepthItem ?? null,
     seenFirstEncounter: player.seenFirstEncounter ?? false,
     seenOpening: player.seenOpening ?? true,
+    seenQueenApproach: player.seenQueenApproach ?? false,
+    queenKilled: player.queenKilled ?? false,
   }
   return {
     player: safe,
@@ -445,6 +521,8 @@ export function freshPlayer(name: string): PlayerState {
     currentDepthItem: null,
     seenFirstEncounter: false,
     seenOpening: false,
+    seenQueenApproach: false,
+    queenKilled: false,
   }
 }
 
@@ -457,6 +535,8 @@ export function resetPlayer(name: string, prev: PlayerState): PlayerState {
     deepest: prev.deepest,
     seenFirstEncounter: prev.seenFirstEncounter,
     seenOpening: prev.seenOpening,
+    seenQueenApproach: prev.seenQueenApproach,
+    queenKilled: prev.queenKilled,
   }
 }
 

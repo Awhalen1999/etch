@@ -52,9 +52,13 @@ export interface PlayerState {
   seenFirstEncounter: boolean
   /** Has the new-account opening cutscene played? Set on first launch. */
   seenOpening: boolean
+  /** Has the player ever reached the queen's chamber? Gates the long approach cutscene. */
+  seenQueenApproach: boolean
+  /** Has the queen been killed? Sticks across death — the game has one ending. */
+  queenKilled: boolean
 }
 
-export type EnemyKind = "ant"
+export type EnemyKind = "ant" | "queen"
 
 export type Phase = "explore" | "pre_combat" | "in_combat"
 
@@ -104,6 +108,7 @@ export interface Cutscene {
 export type CutsceneDone =
   | { kind: "none" }
   | { kind: "encounter"; enemy: EnemyKind }
+  | { kind: "queenVictory" }
 
 export interface Inscription {
   id: number

@@ -8,7 +8,12 @@
 // and an ambiguous pool that doesn't tell. Deeper depths see ambiguous
 // telegraphs more often (see ambiguousChanceFor in world.ts).
 
-import type { CombatRound, EnemyIntent, ResultSeverity } from "./types.ts"
+import type { CombatRound, EnemyIntent, EnemyKind, ResultSeverity } from "./types.ts"
+import {
+  QUEEN_AMBIGUOUS_TELEGRAPHS,
+  QUEEN_ATTACK_TELEGRAPHS,
+  QUEEN_OPEN_TELEGRAPHS,
+} from "./queen.ts"
 import {
   BRACE_STAMINA_COST,
   ROUND_CYCLE_MS,
@@ -67,16 +72,21 @@ export function inSweetSpot(position: number): boolean {
 
 // ---- Round construction ----
 
-export function nextRound(depth: number, now: number): CombatRound {
+export function nextRound(enemy: EnemyKind, depth: number, now: number): CombatRound {
   const intent: EnemyIntent = Math.random() < 0.5 ? "attack" : "open"
   const ambiguous = Math.random() < ambiguousChanceFor(depth)
-  const pool = ambiguous
-    ? AMBIGUOUS_TELEGRAPHS
-    : intent === "attack"
-      ? ATTACK_TELEGRAPHS
-      : OPEN_TELEGRAPHS
+  const pool = telegraphPool(enemy, intent, ambiguous)
   const telegraph = pool[Math.floor(Math.random() * pool.length)]!
   return { intent, telegraph, startedAt: now }
+}
+
+function telegraphPool(enemy: EnemyKind, intent: EnemyIntent, ambiguous: boolean): readonly string[] {
+  if (enemy === "queen") {
+    if (ambiguous) return QUEEN_AMBIGUOUS_TELEGRAPHS
+    return intent === "attack" ? QUEEN_ATTACK_TELEGRAPHS : QUEEN_OPEN_TELEGRAPHS
+  }
+  if (ambiguous) return AMBIGUOUS_TELEGRAPHS
+  return intent === "attack" ? ATTACK_TELEGRAPHS : OPEN_TELEGRAPHS
 }
 
 // ---- Press resolution ----

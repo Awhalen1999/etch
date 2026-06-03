@@ -1,9 +1,19 @@
 // Pure helpers about the world: depth bands, movement costs, recovery rates.
 // No state, no side effects - easy to test in isolation.
 
-export type Band = "the dust" | "the stone" | "the writing" | "the damp" | "the quiet" | "the queen"
+import type { EnemyKind } from "./types.ts"
+
+export type Band =
+  | "the surface"
+  | "the dust"
+  | "the stone"
+  | "the writing"
+  | "the damp"
+  | "the quiet"
+  | "the queen"
 
 export function bandForDepth(depth: number): Band {
+  if (depth <= 0) return "the surface"
   if (depth <= 30) return "the dust"
   if (depth <= 80) return "the stone"
   if (depth <= 120) return "the writing"
@@ -46,8 +56,9 @@ export const STRIKE_STAMINA_COST = 5
 export const BRACE_STAMINA_COST = 5
 export const WRONG_STRIKE_PENALTY = 40
 
-// Enemy HP by band. The queen is its own boss; not used in slice 2a.
-export function enemyHpFor(depth: number): number {
+// Enemy HP. Queen is fixed at 1000; everyone else scales by depth band.
+export function enemyHpFor(enemy: EnemyKind, depth: number): number {
+  if (enemy === "queen") return 1000
   if (depth <= 80) return 100
   if (depth <= 120) return 175
   if (depth <= 160) return 225

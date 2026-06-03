@@ -85,6 +85,8 @@ for (const def of Object.values(ITEM_DEFS)) {
 }
 
 export function rollSpawn(depth: number): ItemKind | null {
+  // No spawns in the queen's chamber (depth 200) or on the surface (depth 0).
+  if (depth <= 0 || depth >= 200) return null
   if (Math.random() >= SPAWN_CHANCE) return null
   const pool = poolForDepth(depth)
   const totalWeight = pool.reduce((sum, p) => sum + p.weight, 0)
