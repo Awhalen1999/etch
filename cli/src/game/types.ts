@@ -89,19 +89,13 @@ export interface CombatState {
   lastResult: { text: string; severity: ResultSeverity } | null
 }
 
-// A queue of lines emitted one cutscene-beat at a time. While a cutscene
-// is in flight nothing else advances and the player can't act. Lines
-// move from `remaining` to `shown` as they appear; CutsceneLayout renders
-// `shown` and nothing else. When `remaining` empties, `onDone` fires.
-//
-// Lines that must persist into the main scroll after the cutscene ends
-// (the help hint after the opening, the "an enemy blocks..." line after
-// an encounter intro) are emitted into state.lines at cutscene *start*,
-// not at the end. They sit there, invisible during the full-screen
-// cutscene, and reappear naturally when the main layout returns.
+// A queue of lines emitted one beat at a time into the main scroll.
+// While a cutscene is in flight the player can't act, but the layout
+// doesn't change — narration plays inline as part of the world. The
+// footer swaps from InputBar to a dim "..." indicator while lines drip
+// out. When `remaining` empties, `onDone` fires.
 export interface Cutscene {
   remaining: Emit[]
-  shown: Emit[]
   /** Epoch ms when the next line is due. */
   nextAt: number
   onDone: CutsceneDone

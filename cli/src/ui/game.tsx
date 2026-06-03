@@ -20,7 +20,7 @@ import { loadSave, writeSave } from "../store/save.ts"
 import { loadInscriptions, writeInscriptions } from "../store/inscriptions.ts"
 import { clearCombatLock, readCombatLock, writeCombatLock } from "../store/combat-lock.ts"
 import { getInscriptions } from "../api/inscriptions.ts"
-import { CombatLayout, CutsceneLayout, MainLayout } from "./layouts.tsx"
+import { CombatLayout, MainLayout } from "./layouts.tsx"
 import type { Account } from "../store/account.ts"
 import type { GameState } from "../game/types.ts"
 
@@ -109,10 +109,6 @@ export function Game({ account }: { account: Account }) {
 
   // ---- Layout dispatch -------------------------------------------------
 
-  if (state.cutscene) {
-    return <CutsceneLayout cutscene={state.cutscene} height={height} />
-  }
-
   if (state.phase === "in_combat" && state.combat) {
     return (
       <CombatLayout
@@ -126,8 +122,9 @@ export function Game({ account }: { account: Account }) {
     )
   }
 
-  // Explore + pre-combat share the main layout. Chrome eats 4 rows
-  // (HUD + 2 rules + footer). Lines are at most 2 rows each so divide.
+  // Everything else — including narration playback and pre-combat —
+  // goes through the main layout. Chrome eats 4 rows (HUD + 2 rules +
+  // footer). Story lines are at most 2 rows each so divide.
   const visibleCount = Math.max(1, Math.floor((height - 4) / 2))
   return (
     <MainLayout

@@ -19,13 +19,14 @@ import type { Emit } from "./types.ts"
 const story   = (text: string): Emit => ({ style: "story", text })
 const dialog  = (text: string): Emit => ({ style: "dialog", text: `"${text}"` })
 const thought = (text: string): Emit => ({ style: "thought", text })
+const sys     = (text: string): Emit => ({ style: "system", text })
 const pause:   Emit = { style: "pause", text: "..." }
 
-// ---- Opening cutscene ----
+// ---- Opening narration ----
 //
-// Plays once on first-ever launch. The new-player "type /help for
-// commands." hint is emitted into the main scroll at cutscene start —
-// not as part of this script — so it survives into the main layout.
+// Plays once on first-ever launch. Lines arrive in the main scroll one
+// beat at a time. Ends with the help hint so the player knows where to
+// start typing once narration finishes.
 export function openingCutsceneLines(): Emit[] {
   return [
     story("the surface is dying."),
@@ -100,6 +101,7 @@ export function openingCutsceneLines(): Emit[] {
     thought("i am not dying here."),
     pause,
     thought("the only way is down."),
+    sys("type /help for commands."),
   ]
 }
 

@@ -1,45 +1,18 @@
-// Three top-level layouts. game.tsx picks one based on state:
+// Two top-level layouts. game.tsx picks one based on state:
 //
-//   - cutscene playing       -> CutsceneLayout (full screen prose)
-//   - phase === "in_combat"  -> CombatLayout   (HUD + 3 combat panels)
+//   - phase === "in_combat"  -> CombatLayout  (HUD + 3 combat panels)
 //   - everything else        -> MainLayout    (HUD + scroll + footer)
 //
 // Each layout is self-contained. Switching is driven by state, not by
-// conditionals inside any single layout.
+// conditionals inside any single layout. Narration (formerly "cutscene")
+// plays inline through MainLayout — the only signal is the footer
+// swapping from InputBar to a dim "..." while lines drip into the scroll.
 
-import type { CombatState, Cutscene, GameState, PlayerState } from "../game/types.ts"
-import { LineView } from "./line-view.tsx"
-import { Hud, InputBar, PreCombatBar, Rule, Scroll } from "./panels.tsx"
+import type { CombatState, GameState, PlayerState } from "../game/types.ts"
+import {
+  Hud, InputBar, NarrationIndicator, PreCombatBar, Rule, Scroll,
+} from "./panels.tsx"
 import { EnemyPanel, MomentPanel, TimingPanel } from "./combat-panels.tsx"
-
-// ---- CutsceneLayout -----------------------------------------------------
-//
-// Full-screen prose. No HUD, no scroll buffer, no input — just the
-// cutscene's revealed lines. The cutscene queue (in the reducer) drives
-// everything; when it drains, state.cutscene goes null and game.tsx
-// switches to MainLayout on its own.
-export function CutsceneLayout({
-  cutscene, height,
-}: {
-  cutscene: Cutscene
-  height: number
-}) {
-  // Each story/dialog/thought/pause line takes 2 rows (text + margin
-  // from LineView). Mechanical lines (system) take 1, but cutscenes are
-  // almost all atmospheric so 2 rows is the right upper bound.
-  const visibleCount = Math.max(1, Math.floor(height / 2))
-  const visible = cutscene.shown.slice(-visibleCount)
-  return (
-    <box style={{
-      flexDirection: "column", width: "100%", height: "100%",
-      paddingLeft: 1, paddingRight: 1, overflow: "hidden",
-    }}>
-      {visible.map((emit, i) => (
-        <LineView key={i} line={{ id: i, ...emit }} />
-      ))}
-    </box>
-  )
-}
 
 // ---- CombatLayout -------------------------------------------------------
 //
@@ -80,8 +53,10 @@ export function CombatLayout({
 // ---- MainLayout ---------------------------------------------------------
 //
 // HUD on top, scroll buffer in the middle, footer at the bottom. The
-// footer is either the > input prompt (most of the time) or a
-// PreCombatBar when an encounter is mid-decision.
+// footer has three states:
+//   - narration playing     -> dim "..." indicator (input disabled)
+//   - phase === "pre_combat" -> PreCombatBar (F/E + countdown)
+//   - otherwise              -> InputBar (the > prompt)
 export function MainLayout({
   state, width, visibleCount,
   onInput, onEngage, onEscape,
@@ -103,9 +78,8 @@ export function MainLayout({
     </box>
   )
 
-  // Footer depends on phase: pre-combat shows F/E + countdown; otherwise
-  // the > prompt that dispatches commands.
   function renderFooter() {
+    if (state.cutscene) return <NarrationIndicator />
     if (state.phase === "pre_combat" && state.encounter) {
       return (
         <PreCombatBar

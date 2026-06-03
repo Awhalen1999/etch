@@ -141,29 +141,23 @@ function advanceTick(state: GameState, now: number): GameState {
   return advanceExplore(state, now)
 }
 
-// Lines drain from cutscene.remaining into cutscene.shown — the layout
-// reads `shown` and only `shown`. The main scroll (state.lines) is never
-// touched by the cutscene.
-//
-// The cutscene ends one beat after the final line is pushed to shown:
-//   - Tick A: pop last line into shown, set nextAt = now + CUTSCENE_LINE_MS
-//   - Tick B (>= nextAt): remaining is empty, fire onDone
-// This gives the player time to read the final line instead of having
-// it disappear the instant it's pushed.
+// Pop one line per beat into the main scroll. When the queue empties,
+// fire onDone (clear cutscene, maybe transition phase). The final line
+// lands in state.lines and stays visible there — the cutscene clearing
+// just means the input/narration footer swaps.
 function advanceCutscene(state: GameState, cutscene: Cutscene, now: number): GameState {
   if (now < cutscene.nextAt) return state
 
   const [next, ...rest] = cutscene.remaining
   if (!next) return applyCutsceneDone(state, cutscene.onDone, now)
 
+  const after = appendEmit(state, [next])
+  if (rest.length === 0) {
+    return applyCutsceneDone(after, cutscene.onDone, now)
+  }
   return {
-    ...state,
-    cutscene: {
-      remaining: rest,
-      shown: [...cutscene.shown, next],
-      nextAt: now + CUTSCENE_LINE_MS,
-      onDone: cutscene.onDone,
-    },
+    ...after,
+    cutscene: { remaining: rest, nextAt: now + CUTSCENE_LINE_MS, onDone: cutscene.onDone },
   }
 }
 
@@ -302,7 +296,6 @@ function queueBandFirstVisit(
     ...state,
     cutscene: {
       remaining: lines,
-      shown: [],
       nextAt: now + CUTSCENE_LINE_MS,
       onDone: { kind: "none" },
     },
@@ -312,15 +305,18 @@ function queueBandFirstVisit(
 function enterEncounter(state: GameState, enemy: EnemyKind, now: number): GameState {
   const first = !state.player.seenFirstEncounter
   const intro = first ? firstEncounterLines() : arrivalLinesFor(enemy)
-  // Trail a single mechanical line into the main scroll so the player
-  // sees "an enemy blocks your path." sitting above the PreCombatBar
-  // once the cutscene drains.
-  const trailing: Emit = { style: "system", text: "an enemy blocks your path." }
+  // The mechanical transition line is the final beat of the script.
+  // applyCutsceneDone fires the same tick it lands, so the player sees
+  // "an enemy blocks your path." in the scroll the moment the
+  // PreCombatBar appears at the bottom.
+  const script: Emit[] = [
+    ...intro,
+    { style: "system", text: "an enemy blocks your path." },
+  ]
   return {
-    ...appendEmit(state, [trailing]),
+    ...state,
     cutscene: {
-      remaining: intro,
-      shown: [],
+      remaining: script,
       nextAt: now + CUTSCENE_LINE_MS,
       onDone: { kind: "encounter", enemy },
     },
@@ -364,17 +360,13 @@ function appendEmit(state: GameState, emit: Emit[]): GameState {
 }
 
 export function freshState(name: string, inscriptions: Inscription[]): GameState {
-  // New character: the opening cutscene is queued and seenOpening is set
-  // up front. If the player quits mid-cutscene, the flag is already on
-  // their save so they don't get ambushed with the whole script again.
-  //
-  // The help hint sits in the main scroll from the start. It's invisible
-  // during the full-screen cutscene and naturally appears once the main
-  // layout returns.
+  // New character: the opening narration is queued and seenOpening is
+  // set up front. If the player quits mid-narration, the flag is already
+  // on their save so they don't get ambushed with the whole thing again.
   return {
     player: { ...freshPlayer(name), seenOpening: true },
-    lines: [{ id: 0, style: "system", text: "type /help for commands." }],
-    nextLineId: 1,
+    lines: [],
+    nextLineId: 0,
     quitting: false,
     inscriptions,
     phase: "explore",
@@ -382,7 +374,6 @@ export function freshState(name: string, inscriptions: Inscription[]): GameState
     lastEncounterRollAt: 0,
     cutscene: {
       remaining: openingCutsceneLines(),
-      shown: [],
       nextAt: Date.now() + CUTSCENE_LINE_MS,
       onDone: { kind: "none" },
     },

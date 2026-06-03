@@ -67,6 +67,20 @@ export function Scroll({ lines, visibleCount }: { lines: Line[]; visibleCount: n
   )
 }
 
+// ---- NarrationIndicator -------------------------------------------------
+//
+// Sits in the footer slot during a cutscene so input is visibly disabled
+// but the row height matches the InputBar — no layout jump when narration
+// starts or ends.
+
+export function NarrationIndicator() {
+  return (
+    <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1, flexShrink: 0 }}>
+      <text fg={theme.dim}>{"..."}</text>
+    </box>
+  )
+}
+
 // ---- InputBar -----------------------------------------------------------
 
 export function InputBar({ onSubmit }: { onSubmit: (raw: string) => void }) {
