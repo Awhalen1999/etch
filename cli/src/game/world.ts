@@ -58,9 +58,6 @@ export function enemyHpFor(depth: number): number {
 // Design says 0% below depth 81; we surface a small dev override so
 // ambiguous reads can be tested at the depth-2 test override.
 export function ambiguousChanceFor(depth: number): number {
-  // TEST OVERRIDE: 25% at depth 2 so ambiguous telegraphs show up
-  // during combat testing. Remove with the other depth-2 override.
-  if (depth === 2) return 0.25
   if (depth < 81) return 0
   if (depth <= 120) return 0.10
   if (depth <= 160) return 0.20
@@ -69,8 +66,6 @@ export function ambiguousChanceFor(depth: number): number {
 
 // Per-band chance per 5s roll. Bands not listed are 0%.
 export function encounterChanceFor(depth: number): number {
-  // TEST OVERRIDE: 50% at depth 2 for combat testing. Remove when slice 2 lands.
-  if (depth === 2) return 0.5
   if (depth < 41) return 0
   if (depth <= 80) return 0.05
   if (depth <= 120) return 0.10

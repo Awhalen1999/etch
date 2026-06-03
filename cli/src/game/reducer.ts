@@ -39,6 +39,13 @@ import {
 import { arrivalLinesFor, firstEncounterLines, rollEncounter } from "./encounter.ts"
 import { barPosition, inSweetSpot, nextRound, resolveTiming } from "./combat.ts"
 import { bandCrossing, bandFirstVisitLines, openingCutsceneLines } from "./cutscenes.ts"
+import {
+  HORRIS_IDLE_INTERVAL_MS,
+  idleLine,
+  respawnLine,
+  returnLine,
+  returnedToDepthOne,
+} from "./horris.ts"
 import { attackPowerFor, defensePowerFor } from "./items.ts"
 
 const MAX_LINES = 500
@@ -53,14 +60,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
         action.raw,
         action.now,
       )
-      const base: GameState = {
+      let next: GameState = {
         ...appendEmit(state, result.emit),
         player: result.player,
         quitting: state.quitting || !!result.quit,
       }
+      // Horris greets the player whenever they climb back to depth 1.
+      if (returnedToDepthOne(state.player.depth, result.player.depth)) {
+        next = { ...appendEmit(next, [returnLine()]), lastHorrisAt: action.now }
+      }
       // If this command pushed deepest_depth into a new band, queue the
       // band's one-time first-visit cutscene right after the echo lands.
-      return queueBandFirstVisit(base, state.player.deepest, result.player.deepest, action.now)
+      return queueBandFirstVisit(next, state.player.deepest, result.player.deepest, action.now)
     }
     case "emit": {
       return appendEmit(state, action.lines)
@@ -112,10 +123,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return resolveCombatPress(state, state.combat, key, action.now)
     }
     case "respawn": {
+      // Horris greets every fresh corpse that wakes back up.
       return {
-        ...state,
+        ...appendEmit(state, [respawnLine()]),
         player: action.player,
         pendingDeath: null,
+        lastHorrisAt: action.now,
       }
     }
     case "forceQuit": {
@@ -164,7 +177,9 @@ function advanceCutscene(state: GameState, cutscene: Cutscene, now: number): Gam
 function applyCutsceneDone(state: GameState, done: CutsceneDone, now: number): GameState {
   switch (done.kind) {
     case "none":
-      return { ...state, cutscene: null }
+      // Reset the idle timer so Horris doesn't speak immediately after a
+      // long cutscene (most notably the opening) finishes.
+      return { ...state, cutscene: null, lastHorrisAt: now }
     case "encounter":
       return {
         ...state,
@@ -194,6 +209,11 @@ function advanceExplore(state: GameState, now: number): GameState {
       const enc = rollEncounter(next.player.depth, now)
       if (enc) next = enterEncounter(next, enc.enemy, now)
     }
+  }
+  // Horris idle. Only fires at depth 1; the timer resets on every line
+  // he speaks, so back-to-back idles are spaced HORRIS_IDLE_INTERVAL_MS apart.
+  if (next.player.depth === MIN_DEPTH && now - next.lastHorrisAt >= HORRIS_IDLE_INTERVAL_MS) {
+    next = { ...appendEmit(next, [idleLine()]), lastHorrisAt: now }
   }
   return next
 }
@@ -377,6 +397,7 @@ export function freshState(name: string, inscriptions: Inscription[]): GameState
       nextAt: Date.now() + CUTSCENE_LINE_MS,
       onDone: { kind: "none" },
     },
+    lastHorrisAt: Date.now(),
     combat: null,
     pendingDeath: null,
   }
@@ -405,6 +426,7 @@ export function resumeState(player: PlayerState, inscriptions: Inscription[]): G
     encounter: null,
     lastEncounterRollAt: 0,
     cutscene: null,
+    lastHorrisAt: Date.now(),
     combat: null,
     pendingDeath: null,
   }

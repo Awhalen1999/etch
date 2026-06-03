@@ -131,6 +131,8 @@ export interface GameState {
   lastEncounterRollAt: number
   /** Active cutscene, or null when no script is playing. */
   cutscene: Cutscene | null
+  /** Epoch ms of Horris's last line. Resets the depth-1 idle timer. */
+  lastHorrisAt: number
   /** Active combat state when phase === "in_combat", otherwise null. */
   combat: CombatState | null
   /**
@@ -152,4 +154,4 @@ export type GameAction =
   | { kind: "strike"; now: number }
   | { kind: "brace"; now: number }
   | { kind: "forceQuit"; now: number }
-  | { kind: "respawn"; player: PlayerState }
+  | { kind: "respawn"; player: PlayerState; now: number }

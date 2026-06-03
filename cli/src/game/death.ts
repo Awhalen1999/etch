@@ -32,5 +32,5 @@ export async function runDeath(
     dispatch({ kind: "emit", lines: [err] })
   }
 
-  dispatch({ kind: "respawn", player: resetPlayer(account.name, player) })
+  dispatch({ kind: "respawn", player: resetPlayer(account.name, player), now: Date.now() })
 }

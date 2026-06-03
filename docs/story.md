@@ -182,8 +182,6 @@ the NPC speaks one randomly-selected line when triggered. triggers below.
 
 "still here, are you."
 
-"how was it down there."
-
 "you came back. they don't always."
 
 "the lamp helps, doesn't it."
@@ -194,21 +192,21 @@ the NPC speaks one randomly-selected line when triggered. triggers below.
 
 "the walls remember more than i do."
 
+"i didn't expect you back so soon."
+
 **on respawning at depth 1 after death:**
 
 "back already."
 
-"didn't make it, did you."
-
 "that's how it starts."
-
-"i thought you'd last longer."
 
 "hm. quick this time."
 
 "the dirt got you."
 
 "you'll learn."
+
+"i felt the wall move when you fell."
 
 **on idle / inactivity at depth 1 (occasional, randomized timing):**
 
@@ -219,6 +217,10 @@ the NPC speaks one randomly-selected line when triggered. triggers below.
 "sometimes i hear them. up there. the others."
 
 "this isn't a bad place to wait."
+
+"you can sit, if you want."
+
+"the dust here is older than the dust below."
 
 ## first encounter cutscene
 
