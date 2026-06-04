@@ -37,6 +37,8 @@ export interface CommandResult {
   player: PlayerState
   emit: Emit[]
   quit?: boolean
+  /** Dev /199 sets this so the jump doesn't queue band first-visit cutscenes. */
+  skipBandFirstVisit?: boolean
 }
 
 export function runCommand(ctx: CommandContext, raw: string, now: number): CommandResult {
@@ -56,6 +58,7 @@ export function runCommand(ctx: CommandContext, raw: string, now: number): Comma
     case "/me":   return me(ctx.player, echo)
     case "/help": return help(ctx.player, echo)
     case "/quit": return quit(ctx.player, echo)
+    case "/199": return devJumpTo199(ctx.player, echo)   // dev: remove before launch
     default:
       return {
         player: ctx.player,
@@ -230,6 +233,26 @@ function quit(player: PlayerState, echo: Emit): CommandResult {
     player,
     emit: [echo, sys("the lamp dims.")],
     quit: true,
+  }
+}
+
+// ---- Dev shortcuts (remove before launch) ----
+
+// /199 teleports the player to depth 199 so the queen approach is one
+// /down away. Skips the band first-visit pipeline so each invocation
+// doesn't replay "the stone" cutscene.
+function devJumpTo199(player: PlayerState, echo: Emit): CommandResult {
+  const depth = 199
+  return {
+    player: {
+      ...player,
+      depth,
+      deepest: Math.max(player.deepest, depth),
+      resting: false,
+      currentDepthItem: null,
+    },
+    emit: [echo, sys(`dev: depth ${depth}.`)],
+    skipBandFirstVisit: true,
   }
 }
 

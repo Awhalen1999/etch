@@ -78,6 +78,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // Queen's chamber gets its own approach cutscene; band first-visits
       // handle the rest. Both helpers no-op if a cutscene is already queued.
       next = queueQueenApproach(next, state.player.depth, result.player.depth, action.now)
+      if (result.skipBandFirstVisit) return next
       return queueBandFirstVisit(next, state.player.deepest, result.player.deepest, action.now)
     }
     case "emit": {
