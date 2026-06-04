@@ -36,7 +36,7 @@ const RESERVED_NAMES = [
 
 const TEXT_MAX = 240;
 
-const DEPTH_MIN = 1;
+const DEPTH_MIN = 0;   // 0 is the surface, reachable after the queen.
 const DEPTH_MAX = 200;
 
 const CACHE_SECONDS = 30;
