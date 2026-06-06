@@ -39,6 +39,7 @@ import {
 import { arrivalLinesFor, firstEncounterLines, rollEncounter } from "./encounter.ts"
 import { barPosition, inSweetSpot, nextRound, resolveTiming } from "./combat.ts"
 import { bandCrossing, bandFirstVisitLines, openingCutsceneLines } from "./cutscenes.ts"
+import { AMBIENT_INTERVAL_MS, ambientLineFor } from "./ambient.ts"
 import {
   HORRIS_IDLE_INTERVAL_MS,
   idleLine,
@@ -137,6 +138,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         player: action.player,
         pendingDeath: null,
         lastHorrisAt: action.now,
+        lastAmbientAt: action.now,
       }
     }
     case "forceQuit": {
@@ -185,9 +187,9 @@ function advanceCutscene(state: GameState, cutscene: Cutscene, now: number): Gam
 function applyCutsceneDone(state: GameState, done: CutsceneDone, now: number): GameState {
   switch (done.kind) {
     case "none":
-      // Reset the idle timer so Horris doesn't speak immediately after a
-      // long cutscene (most notably the opening) finishes.
-      return { ...state, cutscene: null, lastHorrisAt: now }
+      // Reset the idle/ambient timers so neither fires immediately after
+      // a long cutscene (most notably the opening) finishes.
+      return { ...state, cutscene: null, lastHorrisAt: now, lastAmbientAt: now }
     case "encounter":
       return {
         ...state,
@@ -202,6 +204,7 @@ function applyCutsceneDone(state: GameState, done: CutsceneDone, now: number): G
         ...state,
         cutscene: null,
         lastHorrisAt: now,
+        lastAmbientAt: now,
         player: {
           ...state.player,
           depth: 0,
@@ -237,6 +240,12 @@ function advanceExplore(state: GameState, now: number): GameState {
   // he speaks, so back-to-back idles are spaced HORRIS_IDLE_INTERVAL_MS apart.
   if (next.player.depth === MIN_DEPTH && now - next.lastHorrisAt >= HORRIS_IDLE_INTERVAL_MS) {
     next = { ...appendEmit(next, [idleLine()]), lastHorrisAt: now }
+  }
+  // Ambient. Fires at any depth that has a band pool — silent at the
+  // surface and in the queen's chamber. ambientLineFor returns null there.
+  if (now - next.lastAmbientAt >= AMBIENT_INTERVAL_MS) {
+    const line = ambientLineFor(next.player.depth)
+    if (line) next = { ...appendEmit(next, [line]), lastAmbientAt: now }
   }
   return next
 }
@@ -473,6 +482,7 @@ export function freshState(name: string, inscriptions: Inscription[]): GameState
       onDone: { kind: "none" },
     },
     lastHorrisAt: Date.now(),
+    lastAmbientAt: Date.now(),
     combat: null,
     pendingDeath: null,
   }
@@ -504,6 +514,7 @@ export function resumeState(player: PlayerState, inscriptions: Inscription[]): G
     lastEncounterRollAt: 0,
     cutscene: null,
     lastHorrisAt: Date.now(),
+    lastAmbientAt: Date.now(),
     combat: null,
     pendingDeath: null,
   }
