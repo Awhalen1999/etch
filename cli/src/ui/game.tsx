@@ -124,7 +124,7 @@ export function Game({ account }: { account: Account }) {
 
   // Everything else — including narration playback and pre-combat —
   // goes through the main layout. Chrome eats 4 rows (HUD + 2 rules +
-  // footer). Story lines are at most 2 rows each so divide.
+  // footer); each scroll line takes 2 rows (text + trailing gap).
   const visibleCount = Math.max(1, Math.floor((height - 4) / 2))
   return (
     <MainLayout

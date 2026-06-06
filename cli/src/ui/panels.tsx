@@ -54,12 +54,15 @@ export function Rule({ width }: { width: number }) {
 
 // ---- Scroll -------------------------------------------------------------
 
-// Clips the line buffer to the most recent `visibleCount` items.
+// Clips the line buffer to the most recent `visibleCount` items and
+// anchors them to the bottom of the available space — newest line
+// always sits just above the rule + footer, like a terminal scroll.
 export function Scroll({ lines, visibleCount }: { lines: Line[]; visibleCount: number }) {
   const visible = lines.slice(-visibleCount)
   return (
     <box style={{
       flexGrow: 1, flexShrink: 1, flexDirection: "column",
+      justifyContent: "flex-end",
       paddingLeft: 1, paddingRight: 1, overflow: "hidden",
     }}>
       {visible.map((line) => <LineView key={line.id} line={line} />)}

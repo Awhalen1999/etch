@@ -44,7 +44,7 @@ export const CUTSCENE_LINE_MS = 2_000
 
 // One full bar bounce (left -> right -> left). Bar position is derived
 // from elapsed time mod this value.
-export const ROUND_CYCLE_MS = 1_600
+export const ROUND_CYCLE_MS = 2_000
 
 // The sweet spot is the middle 20% of the track. A press lands cleanly
 // only when the bar's normalized position is inside this range.

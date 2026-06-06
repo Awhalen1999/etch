@@ -32,11 +32,14 @@ const thought = (text: string): Emit => ({ style: "thought", text })
 const sys     = (text: string): Emit => ({ style: "system",  text })
 const pause:   Emit = { style: "pause", text: "..." }
 
-// ---- 1. Opening cutscene ------------------------------------------------
-// Plays once on first launch. Three days walking, fall into the shaft,
-// wake to Horris.
+// ---- 1a. Landing prose (pre-register) -----------------------------------
+// Plays on the title screen, one line every CUTSCENE_LINE_MS. The
+// name-yourself prompt is hidden until this drip finishes — registering
+// is the act of waking up, narratively, so the player can't skip the
+// fall. After they submit, the OPENING_CUTSCENE below picks up at "you
+// wake" and runs through meeting Horris.
 
-export const OPENING_CUTSCENE: Emit[] = [
+export const LANDING_PROSE: Emit[] = [
   story("the surface is dying."),
   pause,
   story("the heat killed your camp three days ago."),
@@ -60,7 +63,13 @@ export const OPENING_CUTSCENE: Emit[] = [
   story("you fell for a long time."),
   pause,
   story("dust. impact. nothing."),
-  pause,
+]
+
+// ---- 1b. Opening cutscene (post-register) -------------------------------
+// Picks up after the player names themselves. They wake at the bottom
+// of the shaft to find Horris.
+
+export const OPENING_CUTSCENE: Emit[] = [
   story("you wake. someone is sitting near you, in the shade."),
   pause,
   dialog("you came down too."),
@@ -83,7 +92,7 @@ export const OPENING_CUTSCENE: Emit[] = [
   dialog("you can use the old beams to climb if you need to."),
   pause,
   dialog("the only way out is down."),
-  story("he points down the shaft. it goes farther than your light reaches."),
+  story("he points down the shaft. it goes farther than the light reaches."),
   pause,
   story("he grins. it doesn't reach his eyes."),
   pause,

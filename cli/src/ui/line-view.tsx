@@ -1,19 +1,13 @@
-// One row in the scroll. Color comes from the line's style. Atmospheric
-// lines (story, ambient, dialog, thought, pause) get a blank row below
-// for breathing space; mechanical output (echo, system, error) stays
-// tight so command lists read cleanly.
+// One row in the scroll plus a one-row trailing gap, applied uniformly
+// regardless of style. Mixed prose + command output reads with consistent
+// breathing room. Color comes from the line's style.
 
 import type { Line, LineStyle } from "../game/types.ts"
 import { theme } from "./theme.ts"
 
-const SPACED: ReadonlySet<LineStyle> = new Set([
-  "story", "ambient", "dialog", "thought", "pause",
-])
-
 export function LineView({ line }: { line: Line }) {
   const text = line.style === "echo" ? `> ${line.text}` : line.text
-  const margin = SPACED.has(line.style) ? 1 : 0
-  return <text fg={colorFor(line.style)} style={{ marginBottom: margin }}>{text}</text>
+  return <text fg={colorFor(line.style)} style={{ marginBottom: 1 }}>{text}</text>
 }
 
 function colorFor(style: LineStyle): string {

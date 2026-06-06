@@ -17,7 +17,10 @@ import { theme } from "./theme.ts"
 
 const HP_BAR_WIDTH = 24
 const TIMING_BAR_WIDTH = 40
-const FRAME_MS = 33
+// 60fps polling so the rendered tick stays close to the true bar
+// position — at 30fps the gap can be over a cell at peak bar speed,
+// which reads as input lag when pressing near the sweet-spot edges.
+const FRAME_MS = 16
 const EIGHTHS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"] as const
 
 // ---- EnemyPanel ---------------------------------------------------------
@@ -108,25 +111,33 @@ export function TimingPanel({
     return i >= sweetLow && i <= sweetHigh ? theme.accent : theme.dim
   }
 
+  // One tick color across the whole bar — a dark notch on both the dim
+  // brown track and the amber sweet zone. No cell-by-cell switching.
+  const tickFg = theme.bg
+
   function renderCell(i: number) {
     const bg = trackBg(i)
     // Tick lands cleanly inside this cell.
     if (i === tickCell && tickFrac === 0) {
-      return <span key={i} fg={theme.fg} bg={bg}>{"█"}</span>
+      return <span key={i} fg={tickFg} bg={bg}>{"█"}</span>
     }
     // Tick straddles: this cell has track on the left, tick on the right.
     if (i === tickCell && tickFrac > 0) {
-      return <span key={i} fg={bg} bg={theme.fg}>{EIGHTHS[tickFrac]}</span>
+      return <span key={i} fg={bg} bg={tickFg}>{EIGHTHS[tickFrac]}</span>
     }
     // Tick straddles: this cell has tick on the left, track on the right.
     if (i === tickCell + 1 && tickFrac > 0) {
-      return <span key={i} fg={theme.fg} bg={bg}>{EIGHTHS[tickFrac]}</span>
+      return <span key={i} fg={tickFg} bg={bg}>{EIGHTHS[tickFrac]}</span>
     }
     return <span key={i} bg={bg}>{" "}</span>
   }
 
+  // Render the bar as two identical rows so the track reads with weight
+  // instead of as a thin line. The tick is the same in both rows; its
+  // sub-cell straddle aligns so it looks like a 1-wide, 2-tall pillar.
   return (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexShrink: 0 }}>
+      <text>{Array.from({ length: TIMING_BAR_WIDTH }, (_, i) => renderCell(i))}</text>
       <text>{Array.from({ length: TIMING_BAR_WIDTH }, (_, i) => renderCell(i))}</text>
       <text>{" "}</text>
       <text>
