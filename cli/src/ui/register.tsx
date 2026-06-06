@@ -1,12 +1,8 @@
-// First-launch title screen.
-//
-// Top: an ASCII title in dried-blood red.
-// Middle: the landing prose drips line-by-line every CUTSCENE_LINE_MS.
-// Bottom: once the drip finishes, "name yourself." and the input
-// reveal. The player cannot skip the prose by typing fast — the input
-// isn't mounted until the last line lands. Registering is, narratively,
-// the act of waking up; the post-register opening cutscene picks up at
-// "you wake."
+// First-launch title screen. ETCH logo, dripping landing prose ending
+// with the "name yourself." prompt, then the input. The prompt is just
+// the final line in the drip sequence so it inherits the same styling
+// as every other line. The input mounts when the drip finishes — the
+// player can't skip the prose by typing fast.
 
 import { useEffect, useState } from "react"
 import { useTerminalDimensions } from "@opentui/react"
@@ -22,6 +18,11 @@ import { CUTSCENE_LINE_MS } from "../game/world.ts"
 const NAME_MIN = 3
 const NAME_MAX = 32
 const NAME_REGEX = /^[a-z0-9_]+$/
+
+const DRIP: Emit[] = [
+  ...LANDING_PROSE,
+  { style: "story", text: "name yourself." },
+]
 
 // Pre-rendered ANSI-Shadow-style block lettering. Lives here as a const
 // (no figlet runtime dep) so colors and spacing are entirely under our
@@ -40,33 +41,32 @@ type Status =
   | { kind: "submitting" }
   | { kind: "error"; message: string }
 
-interface RegisterProps {
-  onDone: (account: Account) => void
-}
-
-export function Register({ onDone }: RegisterProps) {
+export function Register({ onDone }: { onDone: (account: Account) => void }) {
   const { width, height } = useTerminalDimensions()
   const [lines, setLines] = useState<Emit[]>([])
-  const [promptReady, setPromptReady] = useState(false)
+  const [ready, setReady] = useState(false)
   const [status, setStatus] = useState<Status>({ kind: "idle" })
 
-  // Drip the landing prose, then reveal the prompt one beat later.
+  // Drip the prose + prompt together. Ready flips on the same tick as
+  // the last line lands so the input doesn't lag behind it.
   useEffect(() => {
     let i = 0
     const id = setInterval(() => {
-      if (i < LANDING_PROSE.length) {
-        setLines((prev) => [...prev, LANDING_PROSE[i]!])
-        i += 1
-        return
+      setLines((prev) => [...prev, DRIP[i]!])
+      i += 1
+      if (i >= DRIP.length) {
+        setReady(true)
+        clearInterval(id)
       }
-      setPromptReady(true)
-      clearInterval(id)
     }, CUTSCENE_LINE_MS)
     return () => clearInterval(id)
   }, [])
 
-  async function submit(name: string) {
-    if (status.kind === "submitting") return
+  // OpenTUI 0.2.x's <input onSubmit> type intersects SubmitEvent and
+  // string. At runtime we get a string; narrow it here.
+  async function handleSubmit(arg: unknown) {
+    if (typeof arg !== "string" || status.kind === "submitting") return
+    const name = arg.trim().toLowerCase()
     const localError = validate(name)
     if (localError) {
       setStatus({ kind: "error", message: localError })
@@ -82,28 +82,12 @@ export function Register({ onDone }: RegisterProps) {
     onDone(result.data)
   }
 
-  // OpenTUI 0.2.x has an unsatisfiable JSX type for <input onSubmit>:
-  // it inherits onSubmit(SubmitEvent) from Textarea and the React
-  // wrapper redeclares onSubmit(string), so they intersect. At runtime
-  // the wrapper passes the value as a string; we accept unknown and narrow.
-  const onSubmit = (arg: unknown) => {
-    if (typeof arg !== "string") return
-    void submit(arg.trim().toLowerCase())
-  }
-
-  // Fixed-width inner column. The outer centers it horizontally; text
-  // inside reads left-aligned.
+  // Fixed inner column, centered horizontally. Chrome rows: paddingTop
+  // (2) + title (6) + spacer (1) + rule (1) + spacer (1) + input (1) = 12.
+  // Each prose line takes 2 rows; the oldest falls off the top when the
+  // viewport can't hold them all.
   const inner = Math.min(64, Math.max(0, width - 4))
-
-  // Clip the dripped lines so the title and prompt always fit inside
-  // the terminal viewport. On shorter terminals the oldest visible
-  // line falls off the top as new ones arrive — no flex anchoring, no
-  // bottom gap, just a top-down render of whatever fits. Chrome rows:
-  // paddingTop (2) + title (6) + spacer (1) + rule (1) + spacer (1) = 11;
-  // with prompt add rule + spacer + "name yourself." + input = +4.
-  // Each prose line takes 2 rows (text + trailing gap).
-  const chrome = promptReady ? 15 : 11
-  const visibleCount = Math.max(1, Math.floor((height - chrome) / 2))
+  const visibleCount = Math.max(1, Math.floor((height - 12) / 2))
   const recent = lines.slice(-visibleCount)
 
   return (
@@ -125,16 +109,13 @@ export function Register({ onDone }: RegisterProps) {
         {recent.map((emit, i) => (
           <LineView key={i} line={{ id: i, ...emit }} />
         ))}
-        {promptReady && <Rule width={inner} />}
-        {promptReady && <text>{" "}</text>}
-        {promptReady && <text fg={theme.fg}>name yourself.</text>}
-        {promptReady && (
+        {ready && (
           <box style={{ flexDirection: "row" }}>
             <text fg={theme.dim}>{"> "}</text>
             <input
               focused
               maxLength={NAME_MAX}
-              onSubmit={onSubmit}
+              onSubmit={handleSubmit}
               style={{
                 flexGrow: 1,
                 textColor: theme.fg,
