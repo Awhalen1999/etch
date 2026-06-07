@@ -7,7 +7,7 @@ A **single-player text horror game** with one asynchronous shared layer
 into a mineshaft and can't climb out. The only way is down. Enemies live
 below. The queen waits at depth 200.
 
-Runs locally. Distributed as `npx etch`. A small REST API at `api.etch.rip`
+Runs locally. Distributed as `npx etch-cli`. A small REST API at `api.etch.rip`
 handles the shared inscription layer — no real-time multiplayer.
 
 ## architecture
