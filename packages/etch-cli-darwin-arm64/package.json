@@ -1,0 +1,15 @@
+{
+  "name": "etch-cli-darwin-arm64",
+  "version": "0.0.1",
+  "description": "etch CLI binary for macOS Apple Silicon.",
+  "license": "MIT",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin"
+  ]
+}

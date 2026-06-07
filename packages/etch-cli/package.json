@@ -1,0 +1,22 @@
+{
+  "name": "etch-cli",
+  "version": "0.0.1",
+  "description": "a text horror game. the only way is down.",
+  "license": "MIT",
+  "bin": {
+    "etch-cli": "bin/etch-cli.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "etch-cli-darwin-arm64": "0.0.1",
+    "etch-cli-darwin-x64": "0.0.1",
+    "etch-cli-linux-x64": "0.0.1",
+    "etch-cli-linux-arm64": "0.0.1",
+    "etch-cli-win32-x64": "0.0.1"
+  }
+}

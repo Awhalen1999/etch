@@ -1,17 +1,12 @@
 {
   "name": "@etch/cli",
   "version": "0.0.1",
-  "description": "etch — a text horror game in your terminal.",
+  "description": "etch — game source. Not published directly; binaries are built and shipped from packages/.",
+  "private": true,
   "type": "module",
-  "bin": {
-    "etch": "./dist/etch"
-  },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "dev": "bun run src/index.tsx",
-    "build": "bun build --compile --minify --target=bun src/index.tsx --outfile=dist/etch",
+    "build:host": "bun build --compile --minify --target=bun src/index.tsx --outfile=dist/etch",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

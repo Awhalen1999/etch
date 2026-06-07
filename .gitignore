@@ -6,3 +6,10 @@ dist
 .env
 .env.local
 *.log
+
+# Bun build temp/intermediate files.
+*.bun-build
+
+# Built platform binaries — produced by scripts/build-all.sh, published by CI.
+packages/etch-cli-*/bin/etch
+packages/etch-cli-*/bin/etch.exe

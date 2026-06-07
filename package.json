@@ -1,6 +1,10 @@
 {
-  "name": "etch",
+  "name": "etch-monorepo",
   "private": true,
   "packageManager": "pnpm@9.12.0",
-  "description": "a text horror game. the only way is down."
+  "description": "a text horror game. the only way is down.",
+  "scripts": {
+    "build:all": "./scripts/build-all.sh",
+    "version:set": "./scripts/set-version.sh"
+  }
 }
