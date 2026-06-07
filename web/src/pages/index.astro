@@ -1,18 +1,42 @@
 ---
-import "../styles/theme.css";
+import Layout from "../layouts/Layout.astro";
+import InstallBox from "../components/InstallBox.astro";
 ---
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>etch</title>
-    </head>
-    <body>
-        <main>
-            <h1>etch</h1>
-            <p>the only way is down.</p>
-            <p>not ready yet.</p>
-        </main>
-    </body>
-</html>
+<Layout title="etch — the only way is down" mainClass="stacked">
+    <section class="hero">
+        <h1 class="sr-only">etch</h1>
+        <pre aria-hidden="true">███████╗████████╗ ██████╗██╗  ██╗
+██╔════╝╚══██╔══╝██╔════╝██║  ██║
+█████╗     ██║   ██║     ███████║
+██╔══╝     ██║   ██║     ██╔══██║
+███████╗   ██║   ╚██████╗██║  ██║
+╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝</pre>
+    </section>
+
+    <section class="prose">
+        <p>a single-player text horror game that runs in your terminal.</p>
+        <p>
+            you wake at the bottom of an abandoned mineshaft. the surface
+            above is dying. the lip of the shaft curls inward. there is no
+            climbing back. the only way is down.
+        </p>
+        <p>
+            every player carves into the walls. you will read what others
+            left at the depths you reach. they will read what you leave.
+            the wall remembers everyone.
+        </p>
+        <p>the queen waits at depth two hundred.</p>
+    </section>
+
+    <section class="install-block">
+        <InstallBox command="npx etch" />
+    </section>
+
+    <section class="link-row">
+        <a href="/story">story</a>
+    </section>
+
+    <footer>
+        <p><a href="https://textjam.github.io/spring2026/" target="_blank" rel="noopener">text jam 2026</a></p>
+    </footer>
+</Layout>

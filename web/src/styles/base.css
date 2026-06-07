@@ -1,0 +1,174 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap");
+
+/* design system — six-step spacing scale.
+   layout pattern: parents own the gap, children own no margin. */
+
+:root {
+    --s-1: 0.5rem;   /* 8px   tight controls */
+    --s-2: 1rem;     /* 16px  paragraph rhythm, gaps */
+    --s-3: 1.5rem;   /* 24px  block inner padding */
+    --s-4: 2rem;     /* 32px  reserved */
+    --s-5: 3rem;     /* 48px  between sections */
+    --s-6: 5rem;     /* 80px  page edges */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-weight: 300;
+    line-height: 1.7;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    min-height: 100vh;
+    padding: 0 var(--s-3);
+}
+
+main {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: var(--s-6) 0;
+}
+
+p { margin: 0 0 var(--s-2); }
+
+a {
+    color: var(--danger);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(138, 44, 31, 0.35);
+    transition: border-color 160ms ease, color 160ms ease;
+}
+a:hover { border-bottom-color: var(--danger); }
+
+.sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    border: 0;
+}
+
+/* ---- stacked layout (landing) ---- */
+
+main.stacked {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-5);
+}
+main.stacked > * { margin: 0; }
+
+/* ---- hero ---- */
+
+.hero { text-align: center; }
+.hero pre {
+    display: inline-block;
+    color: var(--danger);
+    font-size: clamp(0.55rem, 2.4vw, 1.05rem);
+    line-height: 1.1;
+    margin: 0;
+    text-align: left;
+    font-weight: 400;
+}
+
+/* ---- prose block (paragraph stack) ---- */
+
+.prose {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+}
+.prose > * { margin: 0; }
+
+/* ---- install block (box + caption) ---- */
+
+.install-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+}
+.install-block > * { margin: 0; }
+
+.install {
+    border: 1px solid var(--rule);
+    padding: var(--s-2) var(--s-3);
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    font-size: 0.95rem;
+}
+
+.install .prompt {
+    color: var(--dim);
+    user-select: none;
+}
+
+.install .cmd {
+    color: var(--fg);
+    flex: 1;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.install button {
+    background: none;
+    border: none;
+    color: var(--dim);
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: var(--s-1) var(--s-2);
+    letter-spacing: 0.1ch;
+    transition: color 160ms ease;
+}
+.install button:hover { color: var(--fg); }
+.install button.copied { color: var(--danger); }
+
+.install-note {
+    color: var(--dim);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+/* ---- link row ---- */
+
+.link-row { text-align: center; }
+
+/* on non-stacked pages (e.g. /story), link-row still needs vertical breathing */
+main:not(.stacked) .link-row { margin: var(--s-5) 0; }
+
+/* ---- story page headers ---- */
+
+h2 {
+    color: var(--danger);
+    font-weight: 400;
+    font-size: 1rem;
+    letter-spacing: 0.2ch;
+    margin: var(--s-5) 0 var(--s-3);
+}
+
+/* ---- footer ---- */
+
+footer {
+    color: var(--dim);
+    font-size: 0.8rem;
+    text-align: center;
+    letter-spacing: 0.1ch;
+}
+footer p { margin: 0; }
+footer a {
+    color: var(--dim);
+    border-bottom-color: var(--rule);
+}
+footer a:hover {
+    color: var(--fg);
+    border-bottom-color: var(--fg);
+}

@@ -1,0 +1,36 @@
+---
+import "../styles/theme.css";
+import "../styles/base.css";
+
+interface Props {
+    title?: string;
+    description?: string;
+    mainClass?: string;
+}
+
+const {
+    title = "etch",
+    description = "the only way is down. a single-player text horror game.",
+    mainClass = "",
+} = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="description" content={description} />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:type" content="website" />
+        <meta name="theme-color" content="#0a0908" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <title>{title}</title>
+    </head>
+    <body>
+        <main class={mainClass}>
+            <slot />
+        </main>
+    </body>
+</html>

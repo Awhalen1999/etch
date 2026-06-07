@@ -1,0 +1,35 @@
+---
+interface Props {
+    command: string;
+}
+const { command } = Astro.props;
+---
+<div class="install">
+    <span class="prompt" aria-hidden="true">$</span>
+    <code class="cmd" data-cmd>{command}</code>
+    <button type="button" data-copy aria-label="copy install command">copy</button>
+</div>
+<p class="install-note">single command. nothing to install permanently.</p>
+
+<script>
+    const button = document.querySelector<HTMLButtonElement>("[data-copy]");
+    const cmdEl = document.querySelector<HTMLElement>("[data-cmd]");
+
+    if (button && cmdEl) {
+        const original = "copy";
+        button.addEventListener("click", async () => {
+            const text = (cmdEl.textContent ?? "").trim();
+            try {
+                await navigator.clipboard.writeText(text);
+                button.textContent = "copied.";
+                button.classList.add("copied");
+            } catch {
+                button.textContent = "press ctrl+c";
+            }
+            setTimeout(() => {
+                button.textContent = original;
+                button.classList.remove("copied");
+            }, 1800);
+        });
+    }
+</script>
