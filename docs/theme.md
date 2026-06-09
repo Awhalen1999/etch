@@ -7,7 +7,7 @@ Single source of truth for the game's visual identity. Used by:
 
 Each client implements the same role table in whatever format its medium
 expects. The CLI passes hex strings to OpenTUI's `fg` / `bg` props on
-`<text>` and `<box>` (e.g. `<text fg="#c8a16f">…</text>`); OpenTUI's Zig
+`<text>` and `<box>` (e.g. `<text fg="#a55a4d">…</text>`); OpenTUI's Zig
 core resolves them to terminal colors. The landing page uses CSS custom
 properties.
 
@@ -21,9 +21,9 @@ uses it.
 | `bg`     | `#0a0908` | 232      | near-black, slight warm tint              |
 | `fg`     | `#b8a99c` | 187      | default body text — dust                  |
 | `dim`    | `#5a5048` | 240      | system, ambient, barely-there beats       |
-| `accent` | `#c8a16f` | 179      | player name, prompts, command echoes      |
+| `accent` | `#a55a4d` | 167      | player name, prompts, command echoes      |
 | `danger` | `#8a2c1f` | 124      | damage, escalations, death, the ETCH logo |
-| `chat`   | `#6f8a72` | 108      | NPC dialog (quoted)                       |
+| `chat`   | `#7a3838` | 95       | NPC dialog (quoted) — hostile by default  |
 | `rule`   | `#2a2520` | 234      | borders, dividers                         |
 
 **Implemented in:**

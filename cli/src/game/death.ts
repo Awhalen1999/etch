@@ -18,8 +18,7 @@ export async function runDeath(
   player: PlayerState,
   dispatch: Dispatch<GameAction>,
 ): Promise<void> {
-  const date = new Date().toISOString().slice(0, 10)
-  const text = `${account.name} fell here. ${date}.`
+  const text = `${account.name} fell here.`
 
   const result = await postInscription(account.name, account.token, deathDepth, text)
   if (result.ok) {
