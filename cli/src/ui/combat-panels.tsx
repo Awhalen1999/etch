@@ -1,8 +1,9 @@
-// Combat-only panels. CombatLayout stacks these three with rules between:
+// Combat-only panels. CombatLayout stacks these two with rules between:
 //
-//   EnemyPanel   - the name and HP bar (ascii art lands here later)
-//   MomentPanel  - last round's result (dim) + the current telegraph
+//   MomentPanel  - last round's result + ambient flavor + telegraph
 //   TimingPanel  - the bouncing tick bar + key hints; owns S/B/E input
+//
+// Enemy name + HP now lives in the HUD (panels.tsx).
 //
 // Bar position math lives in game/combat.ts (one source of truth shared
 // with the press resolver in the reducer).
@@ -12,10 +13,8 @@ import { useKeyboard } from "@opentui/react"
 import type { CombatState, ResultSeverity } from "../game/types.ts"
 import { SWEET_SPOT_HIGH, SWEET_SPOT_LOW } from "../game/world.ts"
 import { barPosition } from "../game/combat.ts"
-import { ENEMY_DEFS } from "../game/encounter.ts"
 import { theme } from "./theme.ts"
 
-const HP_BAR_WIDTH = 24
 const TIMING_BAR_WIDTH = 40
 // 60fps polling so the rendered tick stays close to the true bar
 // position — at 30fps the gap can be over a cell at peak bar speed,
@@ -23,40 +22,19 @@ const TIMING_BAR_WIDTH = 40
 const FRAME_MS = 16
 const EIGHTHS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"] as const
 
-// ---- EnemyPanel ---------------------------------------------------------
-
-export function EnemyPanel({
-  enemy, hp, maxHp,
-}: {
-  enemy: CombatState["enemy"]
-  hp: number
-  maxHp: number
-}) {
-  const def = ENEMY_DEFS[enemy]
-  const { filled, empty } = leftAlignedFill(hp / maxHp, HP_BAR_WIDTH)
-  return (
-    <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1, flexShrink: 0 }}>
-      <text>
-        <span fg={theme.dim}>{def.name}</span>
-        <span fg={theme.dim}>{"   "}</span>
-        <span fg={theme.danger}>{filled}</span>
-        <span fg={theme.dim}>{empty}</span>
-        <span fg={theme.fg}>{`  ${hp}/${maxHp}`}</span>
-      </text>
-    </box>
-  )
-}
-
 // ---- MomentPanel --------------------------------------------------------
 //
-// Three fixed rows so the bar below doesn't bob between rounds:
+// Five fixed rows so the bar below doesn't bob between rounds:
 //   row 1: previous round's result, color-coded by severity
 //   row 2: blank breath
-//   row 3: the current telegraph, bright
+//   row 3: ambient flavor, dim — sense, not signal
+//   row 4: blank breath
+//   row 5: the current telegraph, bright
 export function MomentPanel({
-  telegraph, lastResult,
+  telegraph, ambient, lastResult,
 }: {
   telegraph: string
+  ambient: string
   lastResult: { text: string; severity: ResultSeverity } | null
 }) {
   return (
@@ -64,6 +42,8 @@ export function MomentPanel({
       <text fg={lastResult ? colorForSeverity(lastResult.severity) : theme.dim}>
         {lastResult ? `» ${lastResult.text}` : " "}
       </text>
+      <text>{" "}</text>
+      <text fg={theme.dim}>{ambient}</text>
       <text>{" "}</text>
       <text fg={theme.fg}>{telegraph}</text>
     </box>
@@ -153,15 +133,6 @@ export function TimingPanel({
 }
 
 // ---- Local helpers ------------------------------------------------------
-
-function leftAlignedFill(ratio: number, width: number): { filled: string; empty: string } {
-  const clamped = Math.max(0, Math.min(1, ratio))
-  const eighths = Math.round(clamped * width * 8)
-  const full = Math.floor(eighths / 8)
-  const partial = eighths % 8
-  const filled = "█".repeat(full) + (partial > 0 ? EIGHTHS[partial] : "")
-  return { filled, empty: "░".repeat(width - filled.length) }
-}
 
 function useNow(intervalMs: number): number {
   const [now, setNow] = useState(Date.now())

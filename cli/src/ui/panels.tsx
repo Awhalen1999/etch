@@ -10,17 +10,22 @@
 
 import { useEffect, useState } from "react"
 import { useKeyboard } from "@opentui/react"
-import type { Line, PlayerState } from "../game/types.ts"
+import type { CombatState, Line, PlayerState } from "../game/types.ts"
 import { ENCOUNTER_TIMEOUT_MS } from "../game/world.ts"
+import { ENEMY_DEFS } from "../game/encounter.ts"
 import { LineView } from "./line-view.tsx"
 import { StaminaBar } from "./stamina-bar.tsx"
 import { theme } from "./theme.ts"
 
 const EIGHTHS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"] as const
+const ENEMY_HP_BAR_WIDTH = 12
 
 // ---- Hud ----------------------------------------------------------------
+//
+// When `combat` is non-null, the enemy name and HP bar are pushed to the
+// right side of the HUD line. This replaces the old standalone EnemyPanel.
 
-export function Hud({ player }: { player: PlayerState }) {
+export function Hud({ player, combat }: { player: PlayerState; combat?: CombatState | null }) {
   return (
     <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1, flexShrink: 0 }}>
       <text>
@@ -38,7 +43,25 @@ export function Hud({ player }: { player: PlayerState }) {
         <span fg={theme.dim}>deepest </span>
         <span fg={theme.fg}>{String(player.deepest)}</span>
       </text>
+      {combat ? <EnemyHud combat={combat} /> : null}
     </box>
+  )
+}
+
+function EnemyHud({ combat }: { combat: CombatState }) {
+  const def = ENEMY_DEFS[combat.enemy]
+  const { filled, empty } = leftAlignedFill(combat.enemyHp / combat.enemyMaxHp, ENEMY_HP_BAR_WIDTH)
+  return (
+    <>
+      <box style={{ flexGrow: 1 }} />
+      <text>
+        <span fg={theme.dim}>{def.name}</span>
+        <span>{"  "}</span>
+        <span fg={theme.danger}>{filled}</span>
+        <span fg={theme.dim}>{empty}</span>
+        <span fg={theme.fg}>{` ${combat.enemyHp}/${combat.enemyMaxHp}`}</span>
+      </text>
+    </>
   )
 }
 

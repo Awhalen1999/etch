@@ -12,15 +12,18 @@ import type { CombatState, GameState, PlayerState } from "../game/types.ts"
 import {
   Hud, InputBar, NarrationIndicator, PreCombatBar, Rule, Scroll,
 } from "./panels.tsx"
-import { EnemyPanel, MomentPanel, TimingPanel } from "./combat-panels.tsx"
+import { MomentPanel, TimingPanel } from "./combat-panels.tsx"
 
 // ---- CombatLayout -------------------------------------------------------
 //
-// HUD on top, then three combat panels stacked with rules between them:
+// HUD pinned at top, TimingPanel pinned at bottom (mirrors MainLayout's
+// InputBar anchoring — keys live where the player's eyes go). MomentPanel
+// sits just under the HUD; a flex spacer between it and the TimingPanel
+// soaks up extra height as held-breath silence rather than wasted space.
 //
-//   HUD          - player stamina + depth (still matters in combat)
-//   EnemyPanel   - name + HP bar (ascii art lands here later)
-//   MomentPanel  - prev result + current telegraph
+//   HUD          - player stamina + depth + enemy name/HP on the right
+//   MomentPanel  - prev result + ambient + current telegraph
+//   ( spacer )   - flex-grow void
 //   TimingPanel  - bouncing bar + S/B/E hints (owns input)
 export function CombatLayout({
   combat, player, width, onStrike, onBrace, onEscape,
@@ -34,11 +37,14 @@ export function CombatLayout({
 }) {
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>
-      <Hud player={player} />
+      <Hud player={player} combat={combat} />
       <Rule width={width} />
-      <EnemyPanel enemy={combat.enemy} hp={combat.enemyHp} maxHp={combat.enemyMaxHp} />
-      <Rule width={width} />
-      <MomentPanel telegraph={combat.round.telegraph} lastResult={combat.lastResult} />
+      <MomentPanel
+        telegraph={combat.round.telegraph}
+        ambient={combat.round.ambient}
+        lastResult={combat.lastResult}
+      />
+      <box style={{ flexGrow: 1 }} />
       <Rule width={width} />
       <TimingPanel
         round={combat.round}

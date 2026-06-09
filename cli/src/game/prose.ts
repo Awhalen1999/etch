@@ -286,6 +286,17 @@ export const ANT_AMBIGUOUS_TELEGRAPHS: string[] = [
   "your light catches nothing. only the clicking.",
 ]
 
+// Between-rounds atmosphere. Dimmer than the telegraph — sense, not signal.
+export const ANT_AMBIENT: string[] = [
+  "chitin scrapes on stone.",
+  "the air smells of wet dirt and acid.",
+  "somewhere below, more of them are clicking.",
+  "your breath fogs in the lamp beam.",
+  "a leg drags. then steadies.",
+  "dust falls from the beams above.",
+  "the sound of it is wrong. too many joints.",
+]
+
 // ---- 7. Queen approach + returns ----------------------------------------
 // Approach plays once (seenQueenApproach). Returns are the short lines
 // for subsequent visits after escape.
@@ -359,6 +370,15 @@ export const QUEEN_AMBIGUOUS_TELEGRAPHS: string[] = [
   "the dark pools around her. the trail hisses.",
   "she settles. you cannot read the weight of her.",
   "her shape distorts in your light. the angles are wrong.",
+]
+
+export const QUEEN_AMBIENT: string[] = [
+  "the chamber breathes around her.",
+  "the sac shifts. something inside is awake.",
+  "her eyes do not blink in unison.",
+  "the eggs pulse. slow. patient.",
+  "the trail beneath her hisses where it meets the stone.",
+  "the air is heavier here. wet. iron.",
 ]
 
 // ---- 9. Queen victory ---------------------------------------------------

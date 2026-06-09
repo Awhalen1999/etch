@@ -76,6 +76,8 @@ export type EnemyIntent = "attack" | "open"
 export interface CombatRound {
   intent: EnemyIntent
   telegraph: string
+  /** Atmospheric flavor shown between last result and telegraph. */
+  ambient: string
   /** Epoch ms when the round began. Drives the bouncing timing bar. */
   startedAt: number
 }
