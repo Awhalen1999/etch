@@ -51,9 +51,10 @@ export const ROUND_CYCLE_MS = 2_000
 export const SWEET_SPOT_LOW = 0.4
 export const SWEET_SPOT_HIGH = 0.6
 
-// Stamina costs for combat actions.
-export const STRIKE_STAMINA_COST = 5
-export const BRACE_STAMINA_COST = 5
+// Stamina costs for combat actions. Successful reads are free; wrong
+// reads still pay WRONG_STRIKE_PENALTY (minus defense).
+export const STRIKE_STAMINA_COST = 0
+export const BRACE_STAMINA_COST = 0
 export const WRONG_STRIKE_PENALTY = 40
 
 // Enemy HP. Queen is fixed at 1000; everyone else scales by depth band.
