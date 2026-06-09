@@ -118,7 +118,7 @@ export const OPENING_CUTSCENE: Emit[] = [
   thought("i am not dying here."),
   pause,
   thought("the only way is down."),
-  sys("type /help for commands."),
+  sys("type /help for commands. /quit to save and leave."),
 ]
 
 // ---- 2. Horris ----------------------------------------------------------
@@ -163,6 +163,7 @@ export const BAND_STONE_FIRST_VISIT: Emit[] = [
   story("the shaft narrows. the walls are smoother now."),
   story("like something polished them, a long time ago."),
   story("the dust from above doesn't reach this deep."),
+  sys("/read to see inscriptions here. /mark <text> to leave your own."),
 ]
 
 export const BAND_WRITING_FIRST_VISIT: Emit[] = [

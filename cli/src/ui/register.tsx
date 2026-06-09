@@ -46,6 +46,7 @@ export function Register({ onDone }: { onDone: (account: Account) => void }) {
   const [lines, setLines] = useState<Emit[]>([])
   const [ready, setReady] = useState(false)
   const [status, setStatus] = useState<Status>({ kind: "idle" })
+  const [nameLen, setNameLen] = useState(0)
 
   // Drip the prose + prompt together. Ready flips on the same tick as
   // the last line lands so the input doesn't lag behind it.
@@ -115,6 +116,7 @@ export function Register({ onDone }: { onDone: (account: Account) => void }) {
             <input
               focused
               maxLength={NAME_MAX}
+              onInput={(v) => setNameLen(v.length)}
               onSubmit={handleSubmit}
               style={{
                 flexGrow: 1,
@@ -123,6 +125,7 @@ export function Register({ onDone }: { onDone: (account: Account) => void }) {
                 placeholderColor: theme.dim,
               }}
             />
+            <text fg={theme.dim}>{` ${nameLen}/${NAME_MAX}`}</text>
           </box>
         )}
         {status.kind === "error" && <text fg={theme.danger}>{status.message}</text>}
