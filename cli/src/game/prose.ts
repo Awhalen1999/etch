@@ -13,13 +13,12 @@
 // Sections, in scroll order during a typical playthrough:
 //   1. Opening cutscene
 //   2. Band first-visit cutscenes
-//   3. Ambient lines (per band)
-//   4. Ant first encounter + return arrivals
-//   5. Ant telegraphs (attack / open / ambiguous)
-//   6. Queen approach + return arrivals
-//   7. Queen telegraphs (attack / open / ambiguous)
-//   8. Queen victory (kill → sac → climb → surface)
-//   9. Combat outcome messages (sweet-spot matrix)
+//   3. Ant first encounter + return arrivals
+//   4. Ant telegraphs (attack / open / ambiguous)
+//   5. Queen approach + return arrivals
+//   6. Queen telegraphs (attack / open / ambiguous)
+//   7. Queen victory (kill → sac → climb → surface)
+//   8. Combat outcome messages (sweet-spot matrix)
 
 import type { Emit } from "./types.ts"
 
@@ -108,71 +107,28 @@ export const OPENING_CUTSCENE: Emit[] = [
 // (her approach cutscene serves that purpose).
 
 export const BAND_STONE_FIRST_VISIT: Emit[] = [
-  story("the shaft narrows. the walls are smoother now."),
-  story("like something polished them, a long time ago."),
+  story("the space narrows. the walls are smoother now."),
   story("the dust from above doesn't reach this deep."),
   sys("/read to see inscriptions here. /mark <text> to leave your own."),
 ]
 
 export const BAND_WRITING_FIRST_VISIT: Emit[] = [
   story("inscriptions begin to appear on the walls."),
-  story("horrors. this place is not right."),
+  story("not english."),
   pause,
-  story("the wall remembers everyone."),
 ]
 
 export const BAND_DAMP_FIRST_VISIT: Emit[] = [
   story("your breath fogs. the rock is wet to the touch."),
-  story("water trickles somewhere out of sight."),
-  story("the air here is wrong. it is freezing cold."),
+  story("water trickles from somewhere out of sight."),
 ]
 
 export const BAND_QUIET_FIRST_VISIT: Emit[] = [
-  story("sound dies here."),
-  story("your words don't echo. your own breath sounds far away."),
-  story("this is not a place where things rest."),
+  story("it is quiet."),
+  story("weirdly quiet."),
 ]
 
-// ---- 3. Ambient lines ---------------------------------------------------
-// One per ~90s during exploration. Silent on the surface and in the
-// queen's chamber.
-
-export const AMBIENT_DUST: string[] = [
-  "dust drifts down from above.",
-  "the rock is warm from the surface.",
-  "something skitters somewhere overhead. probably nothing.",
-  "the air still tastes like the surface up here.",
-]
-
-export const AMBIENT_STONE: string[] = [
-  "the walls smell of old iron.",
-  "you think you hear sounds. you can't be sure.",
-  "the dust thins. the air grows denser.",
-  "your light catches faint scratches in the rock.",
-]
-
-export const AMBIENT_WRITING: string[] = [
-  "someone wrote a name here long ago.",
-  "the inscriptions get harder to read at this depth.",
-  "the wall is colder than it should be.",
-  "the carvings are deeper here. older hands.",
-]
-
-export const AMBIENT_DAMP: string[] = [
-  "something drips, far above.",
-  "the rock is slick. you slow down.",
-  "your breath comes in clouds.",
-  "water finds the cracks before you do.",
-]
-
-export const AMBIENT_QUIET: string[] = [
-  "you stop breathing for a moment to listen.",
-  "the silence is wrong. the silence is full.",
-  "something is paying attention.",
-  "your light moves slower in this air.",
-]
-
-// ---- 4. Ant -------------------------------------------------------------
+// ---- 3. Ant -------------------------------------------------------------
 // First encounter plays once. Subsequent arrivals pick one line.
 
 export const ANT_FIRST_ENCOUNTER: Emit[] = [
@@ -206,7 +162,7 @@ export const ANT_ARRIVALS: string[] = [
   "the dark shifts. mandibles, then eyes that don't reflect.",
 ]
 
-// ---- 5. Ant telegraphs --------------------------------------------------
+// ---- 4. Ant telegraphs --------------------------------------------------
 // The player reads these to predict the ant's intent. Ambiguous lines
 // are drawn when the read is suppressed (deeper depths, see world.ts).
 
@@ -245,7 +201,7 @@ export const ANT_AMBIENT: string[] = [
   "the sound of it is wrong. too many joints.",
 ]
 
-// ---- 6. Queen approach + returns ----------------------------------------
+// ---- 5. Queen approach + returns ----------------------------------------
 // Approach plays once (seenQueenApproach). Returns are the short lines
 // for subsequent visits after escape.
 
@@ -292,7 +248,7 @@ export const QUEEN_RETURNS: string[] = [
   "the bones are where you left them.",
 ]
 
-// ---- 7. Queen telegraphs ------------------------------------------------
+// ---- 6. Queen telegraphs ------------------------------------------------
 // Queen-flavored prose pools. Same shape as ant pools; the engine picks
 // based on enemy kind + ambiguous roll.
 
@@ -329,7 +285,7 @@ export const QUEEN_AMBIENT: string[] = [
   "the air is heavier here. wet. iron.",
 ]
 
-// ---- 8. Queen victory ---------------------------------------------------
+// ---- 7. Queen victory ---------------------------------------------------
 // Plays once when the queen drops. Covers everything from the kill
 // through the sac, the climb, finding Horris gone, the surface.
 
@@ -373,7 +329,7 @@ export const QUEEN_VICTORY: Emit[] = [
   sys("you stand on the surface. /mark or /quit."),
 ]
 
-// ---- 9. Combat outcome messages ----------------------------------------
+// ---- 8. Combat outcome messages ----------------------------------------
 // One message per leaf of the sweet-spot × key × intent matrix. The
 // engine in combat.ts picks the right one; this is just the prose.
 

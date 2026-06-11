@@ -138,8 +138,6 @@ export interface GameState {
   lastEncounterRollAt: number
   /** Active cutscene, or null when no script is playing. */
   cutscene: Cutscene | null
-  /** Epoch ms of the last ambient line. Resets after cutscenes and respawns. */
-  lastAmbientAt: number
   /** Active combat state when phase === "in_combat", otherwise null. */
   combat: CombatState | null
   /**

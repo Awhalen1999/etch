@@ -39,7 +39,6 @@ import {
 import { arrivalLinesFor, firstEncounterLines, rollEncounter } from "./encounter.ts"
 import { barPosition, inSweetSpot, nextRound, resolveTiming } from "./combat.ts"
 import { bandCrossing, bandFirstVisitLines, openingCutsceneLines } from "./cutscenes.ts"
-import { AMBIENT_INTERVAL_MS, ambientLineFor } from "./ambient.ts"
 import {
   arrivedAtQueen,
   queenApproachLines,
@@ -125,7 +124,6 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         player: action.player,
         pendingDeath: null,
-        lastAmbientAt: action.now,
       }
     }
     case "forceQuit": {
@@ -174,9 +172,7 @@ function advanceCutscene(state: GameState, cutscene: Cutscene, now: number): Gam
 function applyCutsceneDone(state: GameState, done: CutsceneDone, now: number): GameState {
   switch (done.kind) {
     case "none":
-      // Reset the ambient timer so it doesn't fire immediately after
-      // a long cutscene (most notably the opening) finishes.
-      return { ...state, cutscene: null, lastAmbientAt: now }
+      return { ...state, cutscene: null }
     case "encounter":
       return {
         ...state,
@@ -190,7 +186,6 @@ function applyCutsceneDone(state: GameState, done: CutsceneDone, now: number): G
       return {
         ...state,
         cutscene: null,
-        lastAmbientAt: now,
         player: {
           ...state.player,
           depth: 0,
@@ -221,12 +216,6 @@ function advanceExplore(state: GameState, now: number): GameState {
       const enc = rollEncounter(next.player.depth, now)
       if (enc) next = enterEncounter(next, enc.enemy, now)
     }
-  }
-  // Ambient. Fires at any depth that has a band pool — silent at the
-  // surface and in the queen's chamber. ambientLineFor returns null there.
-  if (now - next.lastAmbientAt >= AMBIENT_INTERVAL_MS) {
-    const line = ambientLineFor(next.player.depth)
-    if (line) next = { ...appendEmit(next, [line]), lastAmbientAt: now }
   }
   return next
 }
@@ -462,7 +451,6 @@ export function freshState(name: string, inscriptions: Inscription[]): GameState
       nextAt: Date.now() + CUTSCENE_LINE_MS,
       onDone: { kind: "none" },
     },
-    lastAmbientAt: Date.now(),
     combat: null,
     pendingDeath: null,
   }
@@ -493,7 +481,6 @@ export function resumeState(player: PlayerState, inscriptions: Inscription[]): G
     encounter: null,
     lastEncounterRollAt: 0,
     cutscene: null,
-    lastAmbientAt: Date.now(),
     combat: null,
     pendingDeath: null,
   }
