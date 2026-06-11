@@ -181,7 +181,7 @@ function recoverFromForceQuit(
     player: resetPlayer(account.name, safe),
     pendingDeath: { depth: deathDepth, thenQuit: false },
     lines: [
-      { id: 0, style: "story", text: "the dark took you." },
+      { id: 0, style: "story", text: "you died." },
       { id: 1, style: "system", text: "you wake at depth 1." },
     ],
     nextLineId: 2,
