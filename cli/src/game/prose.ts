@@ -178,17 +178,6 @@ export const ANT_AMBIGUOUS_TELEGRAPHS: string[] = [
   "your light catches nothing. only the clicking.",
 ]
 
-// Between-rounds atmosphere. Dimmer than the telegraph — sense, not signal.
-export const ANT_AMBIENT: string[] = [
-  "chitin scrapes on stone.",
-  "the air smells of wet dirt and acid.",
-  "somewhere below, more of them are clicking.",
-  "your breath fogs in the lamp beam.",
-  "a leg drags. then steadies.",
-  "dust falls from the beams above.",
-  "the sound of it is wrong. too many joints.",
-]
-
 // ---- 5. Queen approach + returns ----------------------------------------
 // Approach plays once (seenQueenApproach). Returns are the short lines
 // for subsequent visits after escape.

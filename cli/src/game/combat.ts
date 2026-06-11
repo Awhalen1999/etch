@@ -10,7 +10,6 @@
 
 import type { CombatRound, EnemyIntent, EnemyKind, ResultSeverity } from "./types.ts"
 import {
-  ANT_AMBIENT,
   ANT_AMBIGUOUS_TELEGRAPHS,
   ANT_ATTACK_TELEGRAPHS,
   ANT_OPEN_TELEGRAPHS,
@@ -52,8 +51,9 @@ export function nextRound(enemy: EnemyKind, depth: number, now: number): CombatR
   const ambiguous = Math.random() < ambiguousChanceFor(depth)
   const pool = telegraphPool(enemy, intent, ambiguous)
   const telegraph = pool[Math.floor(Math.random() * pool.length)]!
-  const ambientPool = enemy === "queen" ? QUEEN_AMBIENT : ANT_AMBIENT
-  const ambient = ambientPool[Math.floor(Math.random() * ambientPool.length)]!
+  const ambient = enemy === "queen"
+    ? QUEEN_AMBIENT[Math.floor(Math.random() * QUEEN_AMBIENT.length)]!
+    : ""
   return { intent, telegraph, ambient, startedAt: now }
 }
 
