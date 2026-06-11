@@ -110,11 +110,15 @@ export function Game({ account }: { account: Account }) {
   // ---- Layout dispatch -------------------------------------------------
 
   if (state.phase === "in_combat" && state.combat) {
+    // CombatLayout chrome: HUD + 2 rules + TimingPanel (4 rows) = 7 rows.
+    const combatVisible = Math.max(1, Math.floor((height - 7) / 2))
     return (
       <CombatLayout
         combat={state.combat}
         player={state.player}
+        lines={state.lines}
         width={width}
+        visibleCount={combatVisible}
         onStrike={() => dispatch({ kind: "strike", now: Date.now() })}
         onBrace={() => dispatch({ kind: "brace", now: Date.now() })}
         onEscape={() => dispatch({ kind: "escape", now: Date.now() })}

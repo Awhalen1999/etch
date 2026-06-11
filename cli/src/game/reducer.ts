@@ -22,7 +22,9 @@ import type {
   GameState,
   Inscription,
   Line,
+  LineStyle,
   PlayerState,
+  ResultSeverity,
 } from "./types.ts"
 import { runCommand } from "./commands.ts"
 import {
@@ -237,16 +239,16 @@ function recoverStamina(state: GameState): GameState {
 
 function enterCombat(state: GameState, enemy: EnemyKind, now: number): GameState {
   const maxHp = enemyHpFor(enemy, state.player.depth)
+  const round = nextRound(enemy, state.player.depth, now)
   return {
-    ...state,
+    ...appendEmit(state, [{ style: "story", text: round.telegraph }]),
     phase: "in_combat",
     encounter: null,
     combat: {
       enemy,
       enemyMaxHp: maxHp,
       enemyHp: maxHp,
-      round: nextRound(enemy, state.player.depth, now),
-      lastResult: null,
+      round,
     },
   }
 }
@@ -282,7 +284,7 @@ function resolveCombatPress(
       return enterQueenVictory({ ...state, player: playerAfter }, outcome.message, now)
     }
     const lines: Emit[] = [
-      { style: "story", text: outcome.message },
+      { style: styleForSeverity(outcome.severity), text: outcome.message },
       { style: "story", text: "it shudders. it stops." },
       { style: "system", text: "the way is clear." },
     ]
@@ -295,16 +297,25 @@ function resolveCombatPress(
     }
   }
 
+  const nextR = nextRound(combat.enemy, state.player.depth, now)
   return {
-    ...state,
+    ...appendEmit(state, [
+      { style: styleForSeverity(outcome.severity), text: outcome.message },
+      { style: "story", text: nextR.telegraph },
+    ]),
     combat: {
       ...combat,
       enemyHp: newHp,
-      lastResult: { text: outcome.message, severity: outcome.severity },
-      round: nextRound(combat.enemy, state.player.depth, now),
+      round: nextR,
     },
     player: playerAfter,
   }
+}
+
+function styleForSeverity(severity: ResultSeverity): LineStyle {
+  if (severity === "win")  return "dialog"
+  if (severity === "loss") return "error"
+  return "system"
 }
 
 // The queen's death triggers one long cutscene that covers everything

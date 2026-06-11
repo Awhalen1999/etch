@@ -1,6 +1,6 @@
 // Two top-level layouts. game.tsx picks one based on state:
 //
-//   - phase === "in_combat"  -> CombatLayout  (HUD + 3 combat panels)
+//   - phase === "in_combat"  -> CombatLayout  (HUD + scroll + TimingPanel)
 //   - everything else        -> MainLayout    (HUD + scroll + footer)
 //
 // Each layout is self-contained. Switching is driven by state, not by
@@ -8,29 +8,30 @@
 // plays inline through MainLayout — the only signal is the footer
 // swapping from InputBar to a dim "..." while lines drip into the scroll.
 
-import type { CombatState, GameState, PlayerState } from "../game/types.ts"
+import type { CombatState, GameState, Line, PlayerState } from "../game/types.ts"
 import {
   Hud, InputBar, NarrationIndicator, PreCombatBar, Rule, Scroll,
 } from "./panels.tsx"
-import { MomentPanel, TimingPanel } from "./combat-panels.tsx"
+import { TimingPanel } from "./combat-panels.tsx"
 
 // ---- CombatLayout -------------------------------------------------------
 //
 // HUD pinned at top, TimingPanel pinned at bottom (mirrors MainLayout's
-// InputBar anchoring — keys live where the player's eyes go). MomentPanel
-// sits just under the HUD; a flex spacer between it and the TimingPanel
-// soaks up extra height as held-breath silence rather than wasted space.
+// InputBar anchoring — keys live where the player's eyes go). Combat
+// telegraphs and outcomes are emitted into state.lines by the reducer,
+// so the Scroll handles them the same way it handles exploration prose.
 //
 //   HUD          - player stamina + depth + enemy name/HP on the right
-//   MomentPanel  - prev result + ambient + current telegraph
-//   ( spacer )   - flex-grow void
+//   Scroll       - the shared line buffer (telegraphs + outcomes)
 //   TimingPanel  - bouncing bar + S/B/E hints (owns input)
 export function CombatLayout({
-  combat, player, width, onStrike, onBrace, onEscape,
+  combat, player, lines, width, visibleCount, onStrike, onBrace, onEscape,
 }: {
   combat: CombatState
   player: PlayerState
+  lines: Line[]
   width: number
+  visibleCount: number
   onStrike: () => void
   onBrace: () => void
   onEscape: () => void
@@ -39,11 +40,7 @@ export function CombatLayout({
     <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>
       <Hud player={player} combat={combat} />
       <Rule width={width} />
-      <MomentPanel
-        telegraph={combat.round.telegraph}
-        lastResult={combat.lastResult}
-      />
-      <box style={{ flexGrow: 1 }} />
+      <Scroll lines={lines} visibleCount={visibleCount} />
       <Rule width={width} />
       <TimingPanel
         round={combat.round}

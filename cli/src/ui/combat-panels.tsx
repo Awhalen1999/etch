@@ -1,16 +1,16 @@
-// Combat-only panels. CombatLayout stacks these two with rules between:
+// Combat-only panel. CombatLayout pairs this with the shared HUD + Scroll:
 //
-//   MomentPanel  - last round's result + ambient flavor + telegraph
 //   TimingPanel  - the bouncing tick bar + key hints; owns S/B/E input
 //
-// Enemy name + HP now lives in the HUD (panels.tsx).
+// Enemy name + HP lives in the HUD (panels.tsx). Telegraphs and outcomes
+// are emitted into state.lines by the reducer and rendered by Scroll.
 //
 // Bar position math lives in game/combat.ts (one source of truth shared
 // with the press resolver in the reducer).
 
 import { useEffect, useState } from "react"
 import { useKeyboard } from "@opentui/react"
-import type { CombatState, ResultSeverity } from "../game/types.ts"
+import type { CombatState } from "../game/types.ts"
 import { SWEET_SPOT_HIGH, SWEET_SPOT_LOW } from "../game/world.ts"
 import { barPosition } from "../game/combat.ts"
 import { theme } from "./theme.ts"
@@ -21,37 +21,6 @@ const TIMING_BAR_WIDTH = 40
 // which reads as input lag when pressing near the sweet-spot edges.
 const FRAME_MS = 16
 const EIGHTHS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"] as const
-
-// ---- MomentPanel --------------------------------------------------------
-//
-// Three fixed rows so the bar below doesn't bob between rounds:
-//   row 1: previous round's result, color-coded by severity
-//   row 2: blank breath
-//   row 3: the current telegraph, bright
-export function MomentPanel({
-  telegraph, lastResult,
-}: {
-  telegraph: string
-  lastResult: { text: string; severity: ResultSeverity } | null
-}) {
-  return (
-    <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexShrink: 0 }}>
-      <text fg={lastResult ? colorForSeverity(lastResult.severity) : theme.dim}>
-        {lastResult ? `» ${lastResult.text}` : " "}
-      </text>
-      <text>{" "}</text>
-      <text fg={theme.fg}>{telegraph}</text>
-    </box>
-  )
-}
-
-function colorForSeverity(severity: ResultSeverity): string {
-  switch (severity) {
-    case "win":     return theme.chat
-    case "loss":    return theme.danger
-    case "neutral": return theme.dim
-  }
-}
 
 // ---- TimingPanel --------------------------------------------------------
 //

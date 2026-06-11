@@ -79,8 +79,8 @@ export interface CombatRound {
   startedAt: number
 }
 
-// What kind of result the previous round produced. Drives the color
-// of the "» ..." line in the moment panel so the player feels hits.
+// What kind of result a round produced. Drives the line style when
+// the outcome is emitted into the scroll.
 export type ResultSeverity = "win" | "loss" | "neutral"
 
 export interface CombatState {
@@ -88,8 +88,6 @@ export interface CombatState {
   enemyMaxHp: number
   enemyHp: number
   round: CombatRound
-  /** Result of the previous press, or null if no round has resolved yet. */
-  lastResult: { text: string; severity: ResultSeverity } | null
 }
 
 // A queue of lines emitted one beat at a time into the main scroll.
