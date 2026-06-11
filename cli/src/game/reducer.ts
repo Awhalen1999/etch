@@ -41,13 +41,6 @@ import { barPosition, inSweetSpot, nextRound, resolveTiming } from "./combat.ts"
 import { bandCrossing, bandFirstVisitLines, openingCutsceneLines } from "./cutscenes.ts"
 import { AMBIENT_INTERVAL_MS, ambientLineFor } from "./ambient.ts"
 import {
-  HORRIS_IDLE_INTERVAL_MS,
-  idleLine,
-  respawnLine,
-  returnLine,
-  returnedToDepthOne,
-} from "./horris.ts"
-import {
   arrivedAtQueen,
   queenApproachLines,
   queenReturnLines,
@@ -71,10 +64,6 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...appendEmit(state, result.emit),
         player: result.player,
         quitting: state.quitting || !!result.quit,
-      }
-      // Horris greets the player whenever they climb back to depth 1.
-      if (returnedToDepthOne(state.player.depth, result.player.depth)) {
-        next = { ...appendEmit(next, [returnLine()]), lastHorrisAt: action.now }
       }
       // Queen's chamber gets its own approach cutscene; band first-visits
       // handle the rest. Both helpers no-op if a cutscene is already queued.
@@ -132,12 +121,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return resolveCombatPress(state, state.combat, key, action.now)
     }
     case "respawn": {
-      // Horris greets every fresh corpse that wakes back up.
       return {
-        ...appendEmit(state, [respawnLine()]),
+        ...state,
         player: action.player,
         pendingDeath: null,
-        lastHorrisAt: action.now,
         lastAmbientAt: action.now,
       }
     }
@@ -187,9 +174,9 @@ function advanceCutscene(state: GameState, cutscene: Cutscene, now: number): Gam
 function applyCutsceneDone(state: GameState, done: CutsceneDone, now: number): GameState {
   switch (done.kind) {
     case "none":
-      // Reset the idle/ambient timers so neither fires immediately after
+      // Reset the ambient timer so it doesn't fire immediately after
       // a long cutscene (most notably the opening) finishes.
-      return { ...state, cutscene: null, lastHorrisAt: now, lastAmbientAt: now }
+      return { ...state, cutscene: null, lastAmbientAt: now }
     case "encounter":
       return {
         ...state,
@@ -203,7 +190,6 @@ function applyCutsceneDone(state: GameState, done: CutsceneDone, now: number): G
       return {
         ...state,
         cutscene: null,
-        lastHorrisAt: now,
         lastAmbientAt: now,
         player: {
           ...state.player,
@@ -235,11 +221,6 @@ function advanceExplore(state: GameState, now: number): GameState {
       const enc = rollEncounter(next.player.depth, now)
       if (enc) next = enterEncounter(next, enc.enemy, now)
     }
-  }
-  // Horris idle. Only fires at depth 1; the timer resets on every line
-  // he speaks, so back-to-back idles are spaced HORRIS_IDLE_INTERVAL_MS apart.
-  if (next.player.depth === MIN_DEPTH && now - next.lastHorrisAt >= HORRIS_IDLE_INTERVAL_MS) {
-    next = { ...appendEmit(next, [idleLine()]), lastHorrisAt: now }
   }
   // Ambient. Fires at any depth that has a band pool — silent at the
   // surface and in the queen's chamber. ambientLineFor returns null there.
@@ -481,7 +462,6 @@ export function freshState(name: string, inscriptions: Inscription[]): GameState
       nextAt: Date.now() + CUTSCENE_LINE_MS,
       onDone: { kind: "none" },
     },
-    lastHorrisAt: Date.now(),
     lastAmbientAt: Date.now(),
     combat: null,
     pendingDeath: null,
@@ -513,7 +493,6 @@ export function resumeState(player: PlayerState, inscriptions: Inscription[]): G
     encounter: null,
     lastEncounterRollAt: 0,
     cutscene: null,
-    lastHorrisAt: Date.now(),
     lastAmbientAt: Date.now(),
     combat: null,
     pendingDeath: null,

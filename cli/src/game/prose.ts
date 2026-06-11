@@ -12,15 +12,14 @@
 //
 // Sections, in scroll order during a typical playthrough:
 //   1. Opening cutscene
-//   2. Horris (depth-1 NPC: return / respawn / idle)
-//   3. Band first-visit cutscenes
-//   4. Ambient lines (per band)
-//   5. Ant first encounter + return arrivals
-//   6. Ant telegraphs (attack / open / ambiguous)
-//   7. Queen approach + return arrivals
-//   8. Queen telegraphs (attack / open / ambiguous)
-//   9. Queen victory (kill → sac → climb → surface)
-//  10. Combat outcome messages (sweet-spot matrix)
+//   2. Band first-visit cutscenes
+//   3. Ambient lines (per band)
+//   4. Ant first encounter + return arrivals
+//   5. Ant telegraphs (attack / open / ambiguous)
+//   6. Queen approach + return arrivals
+//   7. Queen telegraphs (attack / open / ambiguous)
+//   8. Queen victory (kill → sac → climb → surface)
+//   9. Combat outcome messages (sweet-spot matrix)
 
 import type { Emit } from "./types.ts"
 
@@ -50,12 +49,8 @@ export const LANDING_PROSE: Emit[] = [
   story("three days. no water. no shade. no one."),
   story("just cracked earth and yellow sky, thick with dust."),
   pause,
-  story("you stopped sweating on the second day."),
-  story("you kept walking because stopping meant lying down."),
-  story("and lying down meant not getting up."),
-  pause,
   story("on the third day you saw it."),
-  story("a hole in the ground. dark and still."),
+  story("a deep hole in the ground."),
   pause,
   story("you went toward it because there was nothing else."),
   pause,
@@ -75,30 +70,22 @@ export const OPENING_CUTSCENE: Emit[] = [
   dialog("you came down too."),
   story("he sounds almost pleased."),
   pause,
-  dialog("they all come down eventually."),
-  pause,
   story("he's been here a while. you can tell by the dust settled around him."),
   pause,
   story("you look around. it's an abandoned mineshaft."),
-  story("you look up. the ceiling and walls are smooth stone."),
-  story("the lip curls inward like a jaw."),
+  story("you look up. the ceiling and walls are smooth stone it must be 30 feet high."),
   story("even with rope the climb seems impossible."),
-  pause,
-  story("almost like it was designed that way."),
   pause,
   dialog("that's quite a fall you took."),
   pause,
   dialog("the good news is it's not far between levels down here."),
   dialog("you can use the old beams to climb if you need to."),
-  pause,
-  dialog("the only way out is down."),
   story("he points down the shaft. it goes farther than the light reaches."),
   pause,
   story("he grins. it doesn't reach his eyes."),
   pause,
   story("he pulls something from a bag beside him. tosses it to you."),
   story("an old miner's headlamp."),
-  pause,
   dialog("it gets dark down there."),
   pause,
   dialog("i've watched a lot of people go down."),
@@ -112,49 +99,10 @@ export const OPENING_CUTSCENE: Emit[] = [
   story("something in him is wrong but you can't say what."),
   pause,
   dialog("go on, then. or stay. some of us stay."),
-  pause,
-  story("you think one thing, clearly:"),
-  pause,
-  thought("i am not dying here."),
-  pause,
-  thought("the only way is down."),
   sys("type /help for commands. /quit to save and leave."),
 ]
 
-// ---- 2. Horris ----------------------------------------------------------
-// The depth-1 NPC. He doesn't act. He observes. Three trigger pools:
-// return (climbed back up to depth 1), respawn (died and woke), idle.
-// Tone: content in a place no one should be content in.
-
-export const HORRIS_RETURN: string[] = [
-  "still here, are you.",
-  "you came back. they don't always.",
-  "the lamp helps, doesn't it.",
-  "you'll get used to the smell.",
-  "some of them stop talking after a while.",
-  "the walls remember more than i do.",
-  "i didn't expect you back so soon.",
-]
-
-export const HORRIS_RESPAWN: string[] = [
-  "back already.",
-  "that's how it starts.",
-  "hm. quick this time.",
-  "the dirt got you.",
-  "you'll learn.",
-  "i felt the wall move when you fell.",
-]
-
-export const HORRIS_IDLE: string[] = [
-  "i was going to climb out once.",
-  "don't be in a hurry.",
-  "sometimes i hear them. up there. the others.",
-  "this isn't a bad place to wait.",
-  "you can sit, if you want.",
-  "the dust here is older than the dust below.",
-]
-
-// ---- 3. Band first-visit cutscenes --------------------------------------
+// ---- 2. Band first-visit cutscenes --------------------------------------
 // Plays once when deepest_depth first crosses into a band. The dust has
 // none (the opening cutscene serves that purpose). The queen has none
 // (her approach cutscene serves that purpose).
@@ -185,7 +133,7 @@ export const BAND_QUIET_FIRST_VISIT: Emit[] = [
   story("this is not a place where things rest."),
 ]
 
-// ---- 4. Ambient lines ---------------------------------------------------
+// ---- 3. Ambient lines ---------------------------------------------------
 // One per ~90s during exploration. Silent on the surface and in the
 // queen's chamber.
 
@@ -224,7 +172,7 @@ export const AMBIENT_QUIET: string[] = [
   "your light moves slower in this air.",
 ]
 
-// ---- 5. Ant -------------------------------------------------------------
+// ---- 4. Ant -------------------------------------------------------------
 // First encounter plays once. Subsequent arrivals pick one line.
 
 export const ANT_FIRST_ENCOUNTER: Emit[] = [
@@ -258,7 +206,7 @@ export const ANT_ARRIVALS: string[] = [
   "the dark shifts. mandibles, then eyes that don't reflect.",
 ]
 
-// ---- 6. Ant telegraphs --------------------------------------------------
+// ---- 5. Ant telegraphs --------------------------------------------------
 // The player reads these to predict the ant's intent. Ambiguous lines
 // are drawn when the read is suppressed (deeper depths, see world.ts).
 
@@ -297,7 +245,7 @@ export const ANT_AMBIENT: string[] = [
   "the sound of it is wrong. too many joints.",
 ]
 
-// ---- 7. Queen approach + returns ----------------------------------------
+// ---- 6. Queen approach + returns ----------------------------------------
 // Approach plays once (seenQueenApproach). Returns are the short lines
 // for subsequent visits after escape.
 
@@ -344,7 +292,7 @@ export const QUEEN_RETURNS: string[] = [
   "the bones are where you left them.",
 ]
 
-// ---- 8. Queen telegraphs ------------------------------------------------
+// ---- 7. Queen telegraphs ------------------------------------------------
 // Queen-flavored prose pools. Same shape as ant pools; the engine picks
 // based on enemy kind + ambiguous roll.
 
@@ -381,7 +329,7 @@ export const QUEEN_AMBIENT: string[] = [
   "the air is heavier here. wet. iron.",
 ]
 
-// ---- 9. Queen victory ---------------------------------------------------
+// ---- 8. Queen victory ---------------------------------------------------
 // Plays once when the queen drops. Covers everything from the kill
 // through the sac, the climb, finding Horris gone, the surface.
 
@@ -425,7 +373,7 @@ export const QUEEN_VICTORY: Emit[] = [
   sys("you stand on the surface. /mark or /quit."),
 ]
 
-// ---- 10. Combat outcome messages ---------------------------------------
+// ---- 9. Combat outcome messages ----------------------------------------
 // One message per leaf of the sweet-spot × key × intent matrix. The
 // engine in combat.ts picks the right one; this is just the prose.
 
