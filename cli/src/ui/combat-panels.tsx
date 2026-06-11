@@ -24,17 +24,14 @@ const EIGHTHS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"] as const
 
 // ---- MomentPanel --------------------------------------------------------
 //
-// Five fixed rows so the bar below doesn't bob between rounds:
+// Three fixed rows so the bar below doesn't bob between rounds:
 //   row 1: previous round's result, color-coded by severity
 //   row 2: blank breath
-//   row 3: ambient flavor, dim — sense, not signal
-//   row 4: blank breath
-//   row 5: the current telegraph, bright
+//   row 3: the current telegraph, bright
 export function MomentPanel({
-  telegraph, ambient, lastResult,
+  telegraph, lastResult,
 }: {
   telegraph: string
-  ambient: string
   lastResult: { text: string; severity: ResultSeverity } | null
 }) {
   return (
@@ -42,8 +39,6 @@ export function MomentPanel({
       <text fg={lastResult ? colorForSeverity(lastResult.severity) : theme.dim}>
         {lastResult ? `» ${lastResult.text}` : " "}
       </text>
-      <text>{" "}</text>
-      <text fg={theme.dim}>{ambient}</text>
       <text>{" "}</text>
       <text fg={theme.fg}>{telegraph}</text>
     </box>

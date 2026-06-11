@@ -14,7 +14,6 @@ import {
   ANT_ATTACK_TELEGRAPHS,
   ANT_OPEN_TELEGRAPHS,
   COMBAT_MESSAGES,
-  QUEEN_AMBIENT,
   QUEEN_AMBIGUOUS_TELEGRAPHS,
   QUEEN_ATTACK_TELEGRAPHS,
   QUEEN_OPEN_TELEGRAPHS,
@@ -51,10 +50,7 @@ export function nextRound(enemy: EnemyKind, depth: number, now: number): CombatR
   const ambiguous = Math.random() < ambiguousChanceFor(depth)
   const pool = telegraphPool(enemy, intent, ambiguous)
   const telegraph = pool[Math.floor(Math.random() * pool.length)]!
-  const ambient = enemy === "queen"
-    ? QUEEN_AMBIENT[Math.floor(Math.random() * QUEEN_AMBIENT.length)]!
-    : ""
-  return { intent, telegraph, ambient, startedAt: now }
+  return { intent, telegraph, startedAt: now }
 }
 
 function telegraphPool(enemy: EnemyKind, intent: EnemyIntent, ambiguous: boolean): readonly string[] {

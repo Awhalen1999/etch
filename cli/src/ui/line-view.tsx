@@ -15,7 +15,6 @@ function colorFor(style: LineStyle): string {
     case "system":  return theme.dim
     case "echo":    return theme.accent
     case "story":   return theme.fg
-    case "ambient": return theme.dim
     case "error":   return theme.danger
     case "dialog":  return theme.chat
     case "thought": return theme.accent

@@ -41,7 +41,6 @@ export function CombatLayout({
       <Rule width={width} />
       <MomentPanel
         telegraph={combat.round.telegraph}
-        ambient={combat.round.ambient}
         lastResult={combat.lastResult}
       />
       <box style={{ flexGrow: 1 }} />

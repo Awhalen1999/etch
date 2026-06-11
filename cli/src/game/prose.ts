@@ -61,7 +61,7 @@ export const LANDING_PROSE: Emit[] = [
 
 // ---- 1b. Opening cutscene (post-register) -------------------------------
 // Picks up after the player names themselves. They wake at the bottom
-// of the shaft to find Horris.
+// of the space to find Horris.
 
 export const OPENING_CUTSCENE: Emit[] = [
   story("you wake. someone is sitting near you, in the shade."),
@@ -79,7 +79,7 @@ export const OPENING_CUTSCENE: Emit[] = [
   pause,
   dialog("the good news is it's not far between levels down here."),
   dialog("you can use the old beams to climb if you need to."),
-  story("he points down the shaft. it goes farther than the light reaches."),
+  story("he points down the mineshaft. it goes farther than the light reaches."),
   pause,
   story("he grins. it doesn't reach his eyes."),
   pause,
@@ -183,45 +183,29 @@ export const ANT_AMBIGUOUS_TELEGRAPHS: string[] = [
 // for subsequent visits after escape.
 
 export const QUEEN_APPROACH: Emit[] = [
-  story("the shaft opens."),
-  pause,
+  story("the space opens."),
   story("there is a room below you. not a tunnel."),
-  pause,
-  story("a strange light pulses across the chamber."),
-  story("something biological. something alive in the walls."),
   pause,
   story("you step down."),
   pause,
   story("the floor is wet. it is not water."),
   pause,
-  story("bones."),
-  story("scattered across the stone. picked clean. human."),
-  story("skulls. ribcages. jawbones cracked open and hollowed out."),
-  story("drag marks lead inward from every tunnel."),
-  pause,
-  thought("this is where they bring them."),
+  story("bones. scattered across the stone. picked clean. human."),
   pause,
   story("a sound. mandibles. opening and closing in the dark."),
   story("the sound of bone on bone."),
   pause,
-  story("she is at the center of the room."),
+  story("it is at the center of the room."),
+  story("it exoskeleton is black and cracked. pieces cling to the ridges."),
   pause,
-  story("she is massive. twice your size."),
-  story("her abdomen drags behind her, swollen with eggs"),
-  story("that pulse beneath a membrane slick with fluid."),
-  pause,
-  story("her exoskeleton is black and cracked. gore clings to the ridges."),
-  pause,
-  story("her head turns toward you."),
+  story("its head turns toward you."),
   story("hundreds of black lenses. every one finds you at once."),
   pause,
-  story("she pulls herself toward you."),
-  story("slow. deliberate. dragging that weight behind her."),
+  story("it pulls itself toward you."),
+  story("slow. deliberate. dragging weight behind."),
 ]
 
 export const QUEEN_RETURNS: string[] = [
-  "she is still here. the trail is still wet.",
-  "the chamber pulses again. she has not moved.",
   "the bones are where you left them.",
 ]
 
@@ -230,36 +214,22 @@ export const QUEEN_RETURNS: string[] = [
 // based on enemy kind + ambiguous roll.
 
 export const QUEEN_ATTACK_TELEGRAPHS: string[] = [
-  "her mandibles open. forearm-long.",
-  "she drags forward. the trail widens.",
-  "her abdomen contracts. something coils to release.",
-  "a leg the size of a beam lifts.",
-  "her head pivots. hundreds of eyes lock on you.",
+  "its mandibles open. as long as your leg.",
+  "it drags forward.",
+  "a leg the size of a beam lifts forward.",
+  "its head pivots. hundreds of eyes lock on you.",
 ]
 
 export const QUEEN_OPEN_TELEGRAPHS: string[] = [
-  "she stops. the eggs pulse beneath the membrane.",
-  "her head turns away. the soft underside shows.",
-  "she shifts her weight. a joint slips.",
-  "her mandibles part. they stay parted. exposed.",
-  "she lowers. the swollen abdomen sags wide.",
+  "its head turns away. the soft underside shows.",
+  "it shifts its weight. a joint slips.",
+  "its mandibles part. they stay parted. exposed.",
+  "it lowers. the swollen abdomen sags below.",
 ]
 
 export const QUEEN_AMBIGUOUS_TELEGRAPHS: string[] = [
   "every eye finds you. you cannot tell what they see.",
-  "she clicks. once. twice. the rhythm hides her intent.",
-  "the dark pools around her. the trail hisses.",
-  "she settles. you cannot read the weight of her.",
-  "her shape distorts in your light. the angles are wrong.",
-]
-
-export const QUEEN_AMBIENT: string[] = [
-  "the chamber breathes around her.",
-  "the sac shifts. something inside is awake.",
-  "her eyes do not blink in unison.",
-  "the eggs pulse. slow. patient.",
-  "the trail beneath her hisses where it meets the stone.",
-  "the air is heavier here. wet. iron.",
+  "it clicks. once. twice. the rhythm hides its intent.",
 ]
 
 // ---- 7. Queen victory ---------------------------------------------------

@@ -4,13 +4,12 @@
 //   - system:  mechanical info (depth changes, system hints)
 //   - story:   world prose / narration
 //   - echo:    command echoes the player typed
-//   - ambient: passive atmospheric lines
 //   - error:   refusals + failures
 //   - dialog:  another character's spoken lines (e.g. Horris)
 //   - thought: the player's own inner monologue
 //   - pause:   a "..." beat in a cutscene
 export type LineStyle =
-  | "system" | "story" | "echo" | "ambient" | "error"
+  | "system" | "story" | "echo" | "error"
   | "dialog" | "thought" | "pause"
 
 export interface Line {
@@ -76,8 +75,6 @@ export type EnemyIntent = "attack" | "open"
 export interface CombatRound {
   intent: EnemyIntent
   telegraph: string
-  /** Atmospheric flavor shown between last result and telegraph. */
-  ambient: string
   /** Epoch ms when the round began. Drives the bouncing timing bar. */
   startedAt: number
 }
