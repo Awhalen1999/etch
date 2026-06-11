@@ -138,28 +138,18 @@ export const ANT_FIRST_ENCOUNTER: Emit[] = [
   story("legs. too many legs. clicking against stone."),
   pause,
   story("it pulls itself up onto the beam in front of you."),
-  pause,
   story("it's the size of a man."),
   pause,
-  story("its head is wrong. smooth and ridged like cracked bone."),
   story("two black eyes catch your headlamp and don't reflect it back."),
-  story("they just swallow the light."),
-  pause,
-  story("its mandibles open sideways."),
-  story("they're serrated. wet. there's something dark caught between them."),
   pause,
   story("it smells like copper and rot."),
   pause,
-  story("it doesn't charge. it just watches you."),
-  story("its antennae twitch once. twice."),
-  pause,
-  story("it knows you're here."),
+  story("it doesn't move. it just watches you."),
 ]
 
 export const ANT_ARRIVALS: string[] = [
-  "clicking, close. it pulls itself onto the beam.",
   "legs scrape the stone. it rises into the light.",
-  "the dark shifts. mandibles, then eyes that don't reflect.",
+  // todo: 
 ]
 
 // ---- 4. Ant telegraphs --------------------------------------------------
@@ -168,14 +158,14 @@ export const ANT_ARRIVALS: string[] = [
 
 export const ANT_ATTACK_TELEGRAPHS: string[] = [
   "its mandibles open wide.",
-  "the legs coil under it.",
-  "it lunges at the shoulder.",
-  "its head dips. weight shifts back.",
+  "the legs coil under it. ready to attack.",
+  "it lunges towards you.",
+  "its head dips. weight shifts back. ready to strike.",
   "it raises a leg, jagged at the joint.",
 ]
 
 export const ANT_OPEN_TELEGRAPHS: string[] = [
-  "it pauses. the throat is exposed.",
+  "it pauses. its neck is exposed.",
   "the head turns. you see the soft underside.",
   "a leg slips. it is off balance.",
   "it stops moving. one eye twitches.",
@@ -185,8 +175,6 @@ export const ANT_OPEN_TELEGRAPHS: string[] = [
 export const ANT_AMBIGUOUS_TELEGRAPHS: string[] = [
   "your headlamp flickers. shapes fold into the dark.",
   "it slips out of the light. you only hear it breathing.",
-  "the dark thickens between you. you cannot read it.",
-  "it moves behind you. you can only listen.",
   "your light catches nothing. only the clicking.",
 ]
 
